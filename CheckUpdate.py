@@ -185,7 +185,7 @@ class FreeCADDownloader(QtWidgets.QWidget):
         def fetch(url, section):
             results.append((section, ""))
             try:
-                r = requests.get(url, headers=headers, timeout=10)
+                r = requests.get(url, timeout=10)
                 r.raise_for_status()
                 for asset in r.json().get("assets", []):
                     name = asset.get("name", "")
