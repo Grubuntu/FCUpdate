@@ -61,7 +61,7 @@ from PySide.QtWidgets import QToolTip
 translate = App.Qt.translate
 
 # Add translations path
-Gui.addLanguagePath(os.path.join(os.path.dirname(__file__), ""))
+Gui.addLanguagePath(os.path.join(os.path.dirname(__file__), "translations"))
 Gui.updateLocale()
 
 # === CONFIGURATION ===
@@ -419,73 +419,115 @@ freecad_downloader_window = None
 
 import os
 import platform
+import urllib.request
+import json
+import socket
 from pathlib import Path
 from PySide import QtCore, QtGui, QtWidgets
-from PySide.QtWidgets import QMessageBox
+from PySide.QtWidgets import QMessageBox, QCheckBox, QDialog, QVBoxLayout, QLabel, QPushButton
 
-translate = App.Qt.translate
 
-# Path to user directory depending OS
 def get_freecad_user_mod_path():
     system = platform.system()
     if system == "Windows":
         base_path = Path(os.getenv('APPDATA')) / "FreeCAD"
-    elif system == "Darwin":  # macOS
+    elif system == "Darwin":
         base_path = Path.home() / "Library" / "Preferences" / "FreeCAD"
-    else:  # Linux and others
+    else:
         base_path = Path.home() / ".FreeCAD"
     return base_path / "Mod" / "CheckUpdate"
 
-# box to ask the user for authorisation to install
-def show_installation_dialog():
-    msg_box = QMessageBox()
-    msg_box.setIcon(QMessageBox.Information)
-    msg_box.setWindowTitle(
-    translate("Installation Window", "FreeCAD Update Checker installation"))
-    msg_box.setText(translate("Installation Window", "This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten."))
-    msg_box.setInformativeText(translate("Installation Window", "Do you want to continue ?"))
-    msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-    msg_box.setDefaultButton(QMessageBox.Yes)
+class InstallationDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("FreeCAD Update Checker installation")
+        self.setModal(True)
+        self.resize(400, 200)
 
-    response = msg_box.exec()
-    return response == QMessageBox.Yes
+        layout = QVBoxLayout(self)
 
-# run dialog and create directory and files needed
-if show_installation_dialog():
+        label = QLabel("This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten.")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        self.checkbox = QCheckBox("Install language packs")
+        layout.addWidget(self.checkbox)
+
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Yes | QtWidgets.QDialogButtonBox.No)
+        buttons.button(QtWidgets.QDialogButtonBox.Yes).setText("Yes")
+        buttons.button(QtWidgets.QDialogButtonBox.No).setText("No")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def is_checked(self):
+        return self.checkbox.isChecked()
+
+def has_internet_connection(host="8.8.8.8", port=53, timeout=3):
+    """Test réseau basique via un serveur DNS (Google)."""
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        return True
+    except Exception:
+        return False
+
+def download_translations(destination_folder):
+    api_url = "https://api.github.com/repos/Grubuntu/FreeCAD-Update-Checker/contents/translations"
+    headers = {'Accept': 'application/vnd.github.v3+json'}
+
+    try:
+        request = urllib.request.Request(api_url, headers=headers)
+        with urllib.request.urlopen(request) as response:
+            data = json.loads(response.read().decode())
+
+        for file_info in data:
+            if file_info['name'].endswith('.qm'):
+                download_url = file_info['download_url']
+                file_path = destination_folder / file_info['name']
+                urllib.request.urlretrieve(download_url, file_path)
+    except Exception as e:
+        QtWidgets.QMessageBox.warning(None, "Error", str(e))
+
+# --- Code principal ---
+dialog = InstallationDialog()
+if dialog.exec() == QDialog.Accepted:
     mod_path = get_freecad_user_mod_path()
     mod_path.mkdir(parents=True, exist_ok=True)
 
+    # Fichiers principaux (à adapter à ton script réel)
+    (mod_path / "InitGui.py").write_text(init_gui_content, encoding='utf-8')
+    (mod_path / "CheckUpdate.py").write_text(check_update_content, encoding='utf-8')
 
-    # Écriture des fichiers
-    (init_path := mod_path / "InitGui.py").write_text(init_gui_content, encoding='utf-8')
-    (checkupdate_path := mod_path / "CheckUpdate.py").write_text(check_update_content, encoding='utf-8')
+    if dialog.is_checked():
+        if has_internet_connection():
+            translations_path = mod_path / "translations"
+            translations_path.mkdir(parents=True, exist_ok=True)
+            download_translations(translations_path)
+        else:
+            QtWidgets.QMessageBox.warning(None,
+                "No Internet connection",
+                "Could not download translations because the computer is offline.")
 
-    # ask to restart FreeCAD
+    # Demander à redémarrer FreeCAD
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Information)
-    msg.setText(translate("RestartFreeCADWindow",
-                "FreeCAD Update Checker successfully installed."))
-    msg.setInformativeText(translate(
-        "RestartFreeCADWindow", "Please restart FreeCAD for changes to take effect. \nRestart FreeCAD ?"))
-    msg.setWindowTitle(
-        translate("RestartFreeCADWindow", "Restart Required"))
-    msg.setStandardButtons(
-        QMessageBox.Yes | QMessageBox.No)
+    msg.setText("FreeCAD Update Checker successfully installed.")
+    msg.setInformativeText("Please restart FreeCAD for changes to take effect.\nRestart FreeCAD?")
+    msg.setWindowTitle("Restart Required")
+    msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
 
     nowButton = msg.button(QMessageBox.Yes)
-    nowButton.setText(
-        translate("RestartFreeCADWindow", "Now"))
+    nowButton.setText("Now")
     laterButton = msg.button(QMessageBox.No)
-    laterButton.setText(
-        translate("RestartFreeCADWindow", "Later"))
-    response = msg.exec()
+    laterButton.setText("Later")
 
+    response = msg.exec()
     if response == QMessageBox.Yes:
-        """Shuts down and restarts FreeCAD"""
         args = QtWidgets.QApplication.arguments()[1:]
         if Gui.getMainWindow().close():
-            QtCore.QProcess.startDetached(
-                QtWidgets.QApplication.applicationFilePath(), args
-            )
+            QtCore.QProcess.startDetached(QtWidgets.QApplication.applicationFilePath(), args)
 else:
-    QtWidgets.QMessageBox.information(None, translate("Installation Window", "Installation cancelled"), translate("Installation Window", "No files have been installed."))
+    QtWidgets.QMessageBox.information(None,
+        "Installation cancelled",
+        "No files have been installed.")
