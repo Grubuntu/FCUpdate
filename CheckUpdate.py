@@ -1,3 +1,7 @@
+#
+# trouver des icones plus sympa
+# 
+
 CHECKUPDATEVERSION = "1.0"
 
 import os
@@ -15,11 +19,15 @@ import FreeCAD as App
 import FreeCADGui as Gui
 
 from functools import partial
+from PySide.QtCore import QTimer, QPoint
+from PySide.QtWidgets import QToolTip
+
 
 # === CONFIGURATION ===
 
-URL_WEEKLY = "https://api.github.com/repos/FreeCAD/FreeCAD-Bundle/releases/tags/weekly-builds"
 URL_STABLE = "https://api.github.com/repos/FreeCAD/FreeCAD-Bundle/releases/latest"
+URL_WEEKLY = "https://api.github.com/repos/FreeCAD/FreeCAD-Bundle/releases/tags/weekly-builds"
+
 CHECK_INTERVAL = timedelta(hours=1)
 
 def get_freecad_config_dir():
@@ -36,8 +44,41 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 
 ICON_UP_TO_DATE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_DialogApplyButton)
 ICON_UPDATE_AVAILABLE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_BrowserReload)
+ICON_ERROR = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_MessageBoxWarning)
 
 # === FONCTIONS VERSIONS ===
+
+def get_freecad_version_type():
+    version_info = App.Version()
+
+    if len(version_info) < 6:
+        return "FreeCAD (Version inconnue)"
+
+    major, minor, patch = version_info[0:3]
+    build_info = version_info[3]
+    repo_url = version_info[4]
+    git_branch = version_info[6] if len(version_info) > 6 else ""
+    git_tag = version_info[7] if len(version_info) > 7 else ""
+
+    version_text = str(App.Version())
+
+    # Détection stable
+    if "detached at" in git_branch:
+        if major == "1" and minor == "0":
+            return "FreeCAD 1.0.x Stable"
+        return "FreeCAD Stable Release"
+
+    # Détection weekly
+    if "main" in repo_url.lower():
+        return "FreeCAD Weekly Build"
+
+    return "FreeCAD (Version personnalisée ou inconnue)"
+
+# pour debug
+# def get_freecad_version_label():
+    # version_type = get_freecad_version_type()
+    # version_full = ".".join(App.Version()[0:3])
+    # return f"{version_type} ({version_full})"
 
 def get_local_build_number():
     build_str = App.Version()[3]
@@ -52,7 +93,19 @@ def get_remote_build_number():
             match = re.search(r"FreeCAD_weekly-builds-(\d+)-", html)
             return int(match.group(1)) if match else None
     except Exception as e:
-        App.Console.PrintError(f"Erreur récupération version en ligne : {e}\n")
+        App.Console.PrintError(f"Erreur récupération version weekly en ligne : {e}\n")
+        return None
+        
+def get_remote_stable_version():
+    try:
+        r = requests.get(URL_STABLE, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        tag = data.get("tag_name", "")
+        match = re.match(r"v?(\d+\.\d+\.\d+)", tag)
+        return match.group(1) if match else None
+    except Exception as e:
+        App.Console.PrintError(f"Erreur récupération version stable en ligne : {e}\n")
         return None
 
 # === CACHE TEMPOREL ===
@@ -76,50 +129,98 @@ def write_cache(last_check, results_cache):
             "results_cache": results_cache
         }, f, indent=4)
 
-# === BOUTON INTERFACE ===
+# === BOUTON / INTERFACE ===
 
-def check_for_updates():
-    local = get_local_build_number()
-    remote = get_remote_build_number()
-    tooltip = "FreeCAD est à jour."
-    icon = ICON_UP_TO_DATE
+def show_update_tooltip(widget, message, delay_ms=20000):
+    """Affiche un tooltip centré sur le widget donné après un délai."""
+    if not widget:
+        print("Erreur : widget est None")
+        return
 
-    if local and remote:
-        if remote > local:
-            icon = ICON_UPDATE_AVAILABLE
-            tooltip = f"Mise à jour disponible : {remote} > {local}"
-        else:
-            tooltip = f"FreeCAD à jour : {local}"
-    elif not local:
-        tooltip = "Version locale inconnue."
-    elif not remote:
-        tooltip = "Erreur réseau : version distante non récupérée."
+    def show():
+        pos = widget.mapToGlobal(widget.rect().center())
+        QToolTip.showText(pos, message, widget)
 
-    add_button(icon, tooltip)
+    QTimer.singleShot(delay_ms, show)
 
 def add_button(icon, tooltip):
+    """Ajoute un QToolButton dans la barre d'outils (et le retourne pour interaction)."""
     mw = Gui.getMainWindow()
-    action = QtGui.QAction(icon, "Mise à jour FreeCAD", mw)
-    action.setToolTip(tooltip)
-    action.triggered.connect(launch_freecad_downloader)
-
     toolbar = mw.findChild(QtWidgets.QToolBar, "FreeCADUpdateToolbar")
     if not toolbar:
         toolbar = mw.addToolBar("FreeCAD Update")
         toolbar.setObjectName("FreeCADUpdateToolbar")
 
+    # Supprimer les anciens boutons nommés
     for act in toolbar.actions():
-        if act.text() == "Mise à jour FreeCAD":
+        widget = toolbar.widgetForAction(act)
+        if isinstance(widget, QtWidgets.QToolButton) and widget.text() == "Mise à jour FreeCAD":
             toolbar.removeAction(act)
 
-    toolbar.addAction(action)
+    # Création du bouton
+    button = QtWidgets.QToolButton()
+    button.setIcon(icon)
+    button.setToolTip(tooltip)
+    button.setText("Mise à jour FreeCAD")
+    button.setAutoRaise(True)
+    button.clicked.connect(launch_freecad_downloader)
+
+    # Ajout à la barre d'outils
+    action = toolbar.addWidget(button)
+    return button
+
+def check_for_updates():
+    version_type = get_freecad_version_type()
+    tooltip = "Impossible de déterminer la version."
+    icon = ICON_ERROR
+    local, remote = None, None
+
+    if "Weekly" in version_type:
+        local = get_local_build_number()
+        remote = get_remote_build_number()
+        if local and remote:
+            if remote > local:
+                tooltip = f"✅ Mise à jour weekly disponible : {remote} > {local}"
+                icon = ICON_UPDATE_AVAILABLE
+            else:
+                tooltip = f"FreeCAD weekly à jour : {local}"
+                icon = ICON_UP_TO_DATE
+        else:
+            tooltip = "❌ Erreur lors de la récupération de la version weekly."
+            icon = ICON_ERROR
+
+    elif "Stable" in version_type:
+        local = ".".join(App.Version()[0:3])
+        remote = get_remote_stable_version()
+        if remote:
+            if remote > local:
+                tooltip = f"✅ Mise à jour stable disponible : {remote} > {local}"
+                icon = ICON_UPDATE_AVAILABLE
+            else:
+                tooltip = f"FreeCAD stable à jour : {local}"
+                icon = ICON_UP_TO_DATE
+        else:
+            tooltip = "❌ Erreur lors de la récupération de la version stable."
+            icon = ICON_ERROR
+
+    else:
+        tooltip = f"Type de version non pris en charge : {version_type}"
+        icon = ICON_UNKNOWN
+
+    # Ajout du bouton
+    my_update_button = add_button(icon, tooltip)
+
+    # Affichage tooltip si mise à jour dispo
+    if remote and local and remote > local:
+        show_update_tooltip(my_update_button, tooltip)
+
 
 # === FENÊTRE PRINCIPALE ===
 
 class FreeCADDownloader(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("FreeCAD update checker" + CHECKUPDATEVERSION)
+        self.setWindowTitle("FreeCAD update checker " + CHECKUPDATEVERSION)
         self.setFixedSize(600, 600)
         self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowStaysOnTopHint)
         self.setPalette(QtWidgets.QApplication.palette())
@@ -193,7 +294,7 @@ class FreeCADDownloader(QtWidgets.QWidget):
                     if name.lower().endswith((".appimage", ".7z", ".dmg")):
                         results.append((name, durl))
             except Exception as e:
-                App.Console.PrintError(f"Erreur récupération {section} : {e}\n")
+                App.Console.PrintError(f"❌ Erreur récupération {section} : {e}\n")
 
         fetch(URL_STABLE, "Canal Stable :")
         fetch(URL_WEEKLY, "Canal Développement :")
