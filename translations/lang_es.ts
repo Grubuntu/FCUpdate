@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
-<TS version="2.1" language="fr_FR">
+<TS version="2.1">
 <context>
     <name>Console</name>
     <message>
         <location filename="CheckUpdate.py" line="317"/>
         <source>❌ Error retrieving {} : {}
 </source>
-        <translation>❌ Erreur lors de la récupération de {} : {}
+        <translation>❌ Error al recuperar {} : {}
 </translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="371"/>
         <source>This macro requires FreeCAD graphique interface.</source>
-        <translation>Cette macro nécessite l&apos;interface graphique de FreeCAD.</translation>
+        <translation>Esta macro requiere la interfaz gráfica de FreeCAD.</translation>
     </message>
 </context>
 <context>
@@ -21,41 +21,41 @@
     <message>
         <location filename="CheckUpdate.py" line="78"/>
         <source>FreeCAD customised or unknown version</source>
-        <translation>Version de FreeCAD personnalisée ou inconnue</translation>
+        <translation>Versión personalizada o desconocida de FreeCAD</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="95"/>
         <source>Error retrieving weekly online version:{}
 </source>
-        <translation>Erreur lors de la récupération de la version hebdomadaire en ligne : {}
+        <translation>Error al recuperar la versión semanal en línea: {}
 </translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="108"/>
         <source>Error retrieving stable online version:{}
 </source>
-        <translation>Erreur lors de la récupération de la version stable en ligne : {}
+        <translation>Error al recuperar la versión estable en línea: {}
 </translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="188"/>
         <source>✅ Weekly update available : {} &gt; {}</source>
-        <translation>✅ Mise à jour hebdomadaire disponible : {} &gt; {}</translation>
+        <translation>✅ Actualización semanal disponible: {} &gt; {}</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="195"/>
         <source>❌ Error recovering weekly version.</source>
-        <translation>❌ Erreur lors de la récupération de la version hebdomadaire.</translation>
+        <translation>❌ Error al recuperar la versión semanal.</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="265"/>
         <source>Reload</source>
-        <translation>Recharger</translation>
+        <translation>Recargar</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="267"/>
         <source>Close</source>
-        <translation>Fermer</translation>
+        <translation>Cerrar</translation>
     </message>
 </context>
 <context>
@@ -63,33 +63,33 @@
     <message>
         <location filename="CheckUpdate.py" line="259"/>
         <source>Loading...</source>
-        <translation>Chargement...</translation>
+        <translation>Cargando...</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="281"/>
         <source>Updates checked.</source>
-        <translation>Mises à jour vérifiées.</translation>
+        <translation>Actualizaciones comprobadas.</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="283"/>
         <location filename="CheckUpdate.py" line="300"/>
         <source>Updates checked. An update is available !</source>
-        <translation>Mises à jour vérifiées. Une mise à jour est disponible !</translation>
+        <translation>Actualizaciones comprobadas. ¡Hay una actualización disponible!</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="287"/>
         <source>Last check {} minutes ago.</source>
-        <translation>Dernière vérification il y a {} minutes.</translation>
+        <translation>Última comprobación hace {} minutos.</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="289"/>
         <source>Last check {} minutes ago. An update is available !</source>
-        <translation>Dernière vérification il y a {} minutes. Une mise à jour est disponible !</translation>
+        <translation>Última comprobación hace {} minutos. ¡Hay una actualización disponible!</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="298"/>
         <source>Updates checked no update available.</source>
-        <translation>Mises à jour vérifiées, aucune mise à jour disponible.</translation>
+        <translation>Actualizaciones comprobadas, no hay actualizaciones disponibles.</translation>
     </message>
 </context>
 <context>
@@ -97,27 +97,27 @@
     <message>
         <location filename="CheckUpdate.py" line="249"/>
         <source>File name</source>
-        <translation>Nom du fichier</translation>
+        <translation>Nombre del archivo</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="249"/>
         <source>Action</source>
-        <translation>Action</translation>
+        <translation>Acción</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="319"/>
         <source>Canal Stable :</source>
-        <translation>Canal Stable :</translation>
+        <translation>Canal estable :</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="320"/>
         <source>Canal Development :</source>
-        <translation>Canal Développement :</translation>
+        <translation>Canal de desarrollo :</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="342"/>
         <source>Download</source>
-        <translation>Télécharger</translation>
+        <translation>Descargar</translation>
     </message>
 </context>
 <context>
@@ -125,27 +125,27 @@
     <message>
         <location filename="CheckUpdate.py" line="180"/>
         <source>Unable to determine the version.</source>
-        <translation>Impossible de déterminer la version.</translation>
+        <translation>No se puede determinar la versión.</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="202"/>
         <source>✅ Stable update available : {} &gt; {}</source>
-        <translation>✅ Mise à jour stable disponible : {} &gt; {}</translation>
+        <translation>✅ Actualización estable disponible: {} &gt; {}</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="205"/>
         <source>FreeCAD is up to date : {}</source>
-        <translation>FreeCAD est à jour : {}</translation>
+        <translation>FreeCAD está actualizado: {}</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="209"/>
         <source>❌ Error recovering the stable version.</source>
-        <translation>❌ Erreur lors de la récupération de la version stable.</translation>
+        <translation>❌ Error al recuperar la versión estable.</translation>
     </message>
     <message>
         <location filename="CheckUpdate.py" line="212"/>
         <source>Version type not supported : {}</source>
-        <translation>Type de version non pris en charge : {}</translation>
+        <translation>Tipo de versión no soportado: {}</translation>
     </message>
 </context>
 </TS>
