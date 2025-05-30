@@ -21,12 +21,12 @@
 # http://www.freecadweb.org/wiki/index.php?title=Code_snippets
 #
 
-
 # === Contenu du fichier InitGui.py ===
 init_gui_content = '''\
 from PySide import QtGui
 import FreeCAD as App
 
+# auto start code at FreeCAD launch
 def runStartupMacros(name):
     if name != "NoneWorkbench":
         Gui.getMainWindow().workbenchActivated.disconnect(runStartupMacros)
@@ -39,7 +39,7 @@ __main__.runStartupMacros = runStartupMacros
 Gui.getMainWindow().workbenchActivated.connect(runStartupMacros)
 '''
 
-# === Contenu initial de CheckUpdate.py ===
+# === Contenu du fichier CheckUpdate.py ===
 check_update_content = '''\
 CHECKUPDATEVERSION = "1.0"
 
@@ -60,8 +60,6 @@ from PySide.QtCore import QTimer, QPoint
 from PySide.QtWidgets import QToolTip
 translate = App.Qt.translate
 
-
-
 # Add translations path
 Gui.addLanguagePath(os.path.join(os.path.dirname(__file__), ""))
 Gui.updateLocale()
@@ -71,7 +69,7 @@ Gui.updateLocale()
 URL_STABLE = "https://api.github.com/repos/FreeCAD/FreeCAD-Bundle/releases/latest"
 URL_WEEKLY = "https://api.github.com/repos/FreeCAD/FreeCAD-Bundle/releases/tags/weekly-builds"
 
-CHECK_INTERVAL = timedelta(hours=1)
+MINIMUM_CHECK_INTERVAL = timedelta(hours=1)
 
 def get_freecad_config_dir():
     if sys.platform == "win32":
@@ -88,9 +86,14 @@ os.makedirs(CONFIG_DIR, exist_ok=True)
 ICON_UP_TO_DATE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_DialogApplyButton)
 ICON_UPDATE_AVAILABLE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_BrowserReload)
 ICON_ERROR = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_MessageBoxWarning)
+ICON_UNKNOWN = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_TitleBarContextHelpButton)
+
+update_available = False
+my_update_button = None
 
 # === FONCTIONS VERSIONS ===
 
+# get type of version : Stable or Dev(Weekly)
 def get_freecad_version_type():
     version_info = App.Version()
 
@@ -105,29 +108,25 @@ def get_freecad_version_type():
 
     version_text = str(App.Version())
 
-    # Détection stable
+    # Détection Stable
     if "detached at" in git_branch:
         if major == "1" and minor == "0":
             return "FreeCAD 1.0.x Stable"
         return "FreeCAD Stable Release"
 
-    # Détection weekly
+    # Détection Weekly
     if "main" in repo_url.lower():
         return "FreeCAD Weekly Build"
 
     return (translate("MainWindow", "FreeCAD customised or unknown version"))
 
-# pour debug
-# def get_freecad_version_label():
-    # version_type = get_freecad_version_type()
-    # version_full = ".".join(App.Version()[0:3])
-    # return f"{version_type} ({version_full})"
-
+# get version of running FreeCAD
 def get_local_build_number():
     build_str = App.Version()[3]
     match = re.search(r'(\d+)', build_str)
     return int(match.group(1)) if match else None
 
+# get last weekly version online
 def get_remote_build_number():
     try:
         with requests.get(URL_WEEKLY, timeout=10) as r:
@@ -138,7 +137,8 @@ def get_remote_build_number():
     except Exception as e:
         App.Console.PrintError(translate("MainWindow", "Error retrieving weekly online version:{}\\n").format(e))
         return None
-        
+
+# get last stable version online
 def get_remote_stable_version():
     try:
         r = requests.get(URL_STABLE, timeout=10)
@@ -153,6 +153,7 @@ def get_remote_stable_version():
 
 # === CACHE TEMPOREL ===
 
+# read data in cache to limit API access 
 def read_cache():
     if not os.path.exists(CONFIG_FILE):
         return None, []
@@ -165,6 +166,7 @@ def read_cache():
     except Exception:
         return None, []
 
+# save data in cache
 def write_cache(last_check, results_cache):
     with open(CONFIG_FILE, "w") as f:
         json.dump({
@@ -174,7 +176,8 @@ def write_cache(last_check, results_cache):
 
 # === BOUTON / INTERFACE ===
 
-def show_update_tooltip(widget, message, delay_ms=20000):
+# pop a tooltip in FreeCAD when there is an update available
+def show_update_tooltip(widget, message, delay_ms=15000):
     """Affiche un tooltip centré sur le widget donné après un délai."""
     if not widget:
         print("Error : widget is None")
@@ -186,6 +189,7 @@ def show_update_tooltip(widget, message, delay_ms=20000):
 
     QTimer.singleShot(delay_ms, show)
 
+# add the toolbar and the button action of Update Checker in FreeCAD
 def add_button(icon, tooltip):
     """Ajoute un QToolButton dans la barre d'outils (et le retourne pour interaction)."""
     mw = Gui.getMainWindow()
@@ -212,6 +216,7 @@ def add_button(icon, tooltip):
     action = toolbar.addWidget(button)
     return button
 
+# check the updates available online
 def check_for_updates():
     version_type = get_freecad_version_type()
     tooltip = translate("Tooltip", "Unable to determine the version.")
@@ -251,16 +256,23 @@ def check_for_updates():
         icon = ICON_UNKNOWN
 
     # Ajout du bouton
-    my_update_button = add_button(icon, tooltip)
+    global my_update_button
+    if not my_update_button:
+        my_update_button = add_button(icon, tooltip)
 
     # Affichage tooltip si mise à jour dispo
     if remote and local and remote > local:
+        global update_available
+        update_available = True
         show_update_tooltip(my_update_button, tooltip)
-
+    else:
+        update_available = False
+    return update_available
 
 # === FENÊTRE PRINCIPALE ===
 
-class FreeCADDownloader(QtWidgets.QWidget):
+# main class for FreeCAD Update Checker
+class FreeCADUpdateChecker(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("FreeCAD update checker " + CHECKUPDATEVERSION)
@@ -269,7 +281,6 @@ class FreeCADDownloader(QtWidgets.QWidget):
         self.setPalette(QtWidgets.QApplication.palette())
 
         self.results = []
-        self.old_pos = None
 
         self.setup_ui()
         self.load_data()
@@ -306,24 +317,33 @@ class FreeCADDownloader(QtWidgets.QWidget):
     def load_data(self):
         last_check, cached_results = read_cache()
         now = datetime.now()
-
-        if not last_check or now - last_check > CHECK_INTERVAL:
+        global update_available
+        if not last_check or now - last_check > MINIMUM_CHECK_INTERVAL:
             self.results = self.fetch_all_files()
             write_cache(now, self.results)
             self.status_label.setText(translate("Status", "Updates checked."))
+            if update_available :
+                self.status_label.setText(translate("Status", "Updates checked. An update is available !"))
         else:
             self.results = cached_results
             minutes = int((now - last_check).total_seconds() // 60)
             self.status_label.setText(translate("Status", "Last check {} minutes ago.").format(minutes))
+            if update_available :
+                self.status_label.setText(translate("Status", "Last check {} minutes ago. An update is available !").format(minutes))
 
         self.update_ui(self.results)
 
     def force_update(self):
+        global update_available
         self.results = self.fetch_all_files()
+        check_for_updates()
         write_cache(datetime.now(), self.results)
-        self.status_label.setText(translate("Status", "Updated list."))
+        self.status_label.setText(translate("Status", "Updates checked no update available."))
+        if update_available :
+            self.status_label.setText(translate("Status", "Updates checked. An update is available !"))
         self.update_ui(self.results)
 
+    # construct list of files available
     def fetch_all_files(self):
         results = []
         def fetch(url, section):
@@ -343,6 +363,7 @@ class FreeCADDownloader(QtWidgets.QWidget):
         fetch(URL_WEEKLY, translate("Table", "Canal Development :"))
         return results
 
+    # update list of files in tablewidget
     def update_ui(self, results):
         self.liste_files.setRowCount(0)
 
@@ -366,22 +387,13 @@ class FreeCADDownloader(QtWidgets.QWidget):
                 self.liste_files.setItem(row, 0, item_name)
                 self.liste_files.setCellWidget(row, 1, btn)
 
-    def mousePressEvent(self, event):
-        self.old_pos = event.globalPos()
-
-    def mouseMoveEvent(self, event):
-        if self.old_pos:
-            delta = event.globalPos() - self.old_pos
-            self.move(self.pos() + delta)
-            self.old_pos = event.globalPos()
-
 # === LANCEMENT ===
 
 def launch_freecad_downloader():
     global freecad_downloader_window
 
     if freecad_downloader_window is None or not freecad_downloader_window.isVisible():
-        freecad_downloader_window = FreeCADDownloader()
+        freecad_downloader_window = FreeCADUpdateChecker()
         freecad_downloader_window.setWindowFlags(QtCore.Qt.Window)
         freecad_downloader_window.setWindowIcon(QtGui.QIcon(":/icons/freecad"))
         freecad_downloader_window.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
@@ -402,6 +414,7 @@ def run():
         print(translate("Console", "This macro requires FreeCAD graphique interface."))
 
 freecad_downloader_window = None
+
 '''
 
 import os
@@ -412,7 +425,7 @@ from PySide.QtWidgets import QMessageBox
 
 translate = App.Qt.translate
 
-# Chemin vers le dossier utilisateur de FreeCAD, selon l'OS
+# Path to user directory depending OS
 def get_freecad_user_mod_path():
     system = platform.system()
     if system == "Windows":
@@ -423,7 +436,7 @@ def get_freecad_user_mod_path():
         base_path = Path.home() / ".FreeCAD"
     return base_path / "Mod" / "CheckUpdate"
 
-# Crée une boîte de dialogue pour demander l'approbation
+# box to ask the user for authorisation to install
 def show_installation_dialog():
     msg_box = QMessageBox()
     msg_box.setIcon(QMessageBox.Information)
@@ -437,7 +450,7 @@ def show_installation_dialog():
     response = msg_box.exec()
     return response == QMessageBox.Yes
 
-# Lancer le dialogue et créer le dossier si l'utilisateur accepte
+# run dialog and create directory and files needed
 if show_installation_dialog():
     mod_path = get_freecad_user_mod_path()
     mod_path.mkdir(parents=True, exist_ok=True)
@@ -447,12 +460,7 @@ if show_installation_dialog():
     (init_path := mod_path / "InitGui.py").write_text(init_gui_content, encoding='utf-8')
     (checkupdate_path := mod_path / "CheckUpdate.py").write_text(check_update_content, encoding='utf-8')
 
-    # Confirmation dans la console
-    # App.Console.PrintMessage(f"[CheckUpdate Macro] Fichiers créés :\\n- {init_path}\\n- {checkupdate_path}\\n")
-    
-    # message = translate("Installation Window", "Installation complete") + "\n" + str(mod_path)
-    # QtWidgets.QMessageBox.information(None, translate("Installation Window", "Installation complete"), message)
-
+    # ask to restart FreeCAD
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Information)
     msg.setText(translate("RestartFreeCADWindow",
