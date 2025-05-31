@@ -520,14 +520,7 @@ def tr(text):
 
 # --- Utilities ---
 def get_freecad_user_mod_path():
-    system = platform.system()
-    if system == "Windows":
-        base_path = Path(os.getenv('APPDATA')) / "FreeCAD"
-    elif system == "Darwin":
-        # base_path = Path.home() / "Library" / "Preferences" / "FreeCAD"
-        base_path = Path.home() / "Library" / "Application Support" / "FreeCAD"
-    else:
-        base_path = Path.home() / ".FreeCAD"
+    base_path = Path(App.getUserAppDataDir())
     return base_path / "Mod" / "CheckUpdate"
 
 # --- Class dialog ---
@@ -586,7 +579,6 @@ def download_translations(destination_folder):
 dialog = InstallationDialog()
 if dialog.exec() == QDialog.Accepted:
     mod_path = get_freecad_user_mod_path()
-    print(mod_path)
     mod_path.mkdir(parents=True, exist_ok=True)
 
     (mod_path / "InitGui.py").write_text(init_gui_content, encoding='utf-8')
