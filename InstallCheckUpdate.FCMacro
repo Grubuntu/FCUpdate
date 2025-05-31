@@ -201,19 +201,20 @@ def add_button(icon, tooltip):
     # Supprimer les anciens boutons nommés
     for act in toolbar.actions():
         widget = toolbar.widgetForAction(act)
-        if isinstance(widget, QtWidgets.QToolButton) and widget.text() == "FreeCAD Update":
+        if isinstance(widget, QtWidgets.QToolButton) and widget.objectName() == "FreeCADUpdateButton":
             toolbar.removeAction(act)
 
     # Création du bouton
     button = QtWidgets.QToolButton()
+    button.setObjectName("FreeCADUpdateButton")
     button.setIcon(icon)
     button.setToolTip(tooltip)
-    button.setText("Mise à jour FreeCAD")
+    button.setText("FreeCAD Update Checker")
     button.setAutoRaise(True)
     button.clicked.connect(launch_freecad_downloader)
 
     # Ajout à la barre d'outils
-    action = toolbar.addWidget(button)
+    toolbar.addWidget(button)
     return button
 
 # check the updates available online
@@ -416,17 +417,108 @@ def run():
 freecad_downloader_window = None
 
 '''
-
 import os
 import platform
 import urllib.request
 import json
 import socket
+import locale
 from pathlib import Path
 from PySide import QtCore, QtGui, QtWidgets
 from PySide.QtWidgets import QMessageBox, QCheckBox, QDialog, QVBoxLayout, QLabel, QPushButton
 
+# --- Internals translations ---
+locales_table = {'English': 'en', 'Afrikaans': 'af', 'Arabic': 'ar', 'Basque': 'eu', 'Catalan': 'ca', 'Chinese Simplified': 'zh-CN', 'Chinese Traditional': 'zh-TW', 'Croatian': 'hr', 'Czech': 'cs', 'Dutch': 'nl', 'Filipino': 'fil', 'Finnish': 'fi', 'French': 'fr', 'Galician': 'gl', 'German': 'de', 'Hungarian': 'hu', 'Indonesian': 'id', 'Italian': 'it', 'Japanese': 'ja', 'Kabyle': 'kab', 'Korean': 'ko', 'Lithuanian': 'lt', 'Norwegian': 'no', 'Polish': 'pl', 'Portuguese': 'pt-PT', 'Portuguese, Brazilian': 'pt-BR', 'Romanian': 'ro', 'Russian': 'ru', 'Slovak': 'sk', 'Slovenian': 'sl', 'Spanish': 'es-ES', 'Swedish': 'sv-SE', 'Turkish': 'tr', 'Ukrainian': 'uk', 'Valencian': 'val-ES', 'Vietnamese': 'vi'}
 
+translations = {
+    'French': {
+        "FreeCAD Update Checker installation": "Installation de FreeCAD Update Checker",
+        "This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten. \n Would you like to continue ?":
+            "Cette macro va créer un dossier dans votre espace utilisateur pour installer les fichiers nécessaires à la vérification des mises à jour de FreeCAD. Si FreeCAD Update Checker est déjà installé, les fichiers seront écrasés.\nSouhaitez-vous continuer ?",
+        "Install language packs": "Installer les packs de langue",
+        "Yes": "Oui",
+        "No": "Non",
+        "Error": "Erreur",
+        "No Internet connection": "Pas de connexion Internet",
+        "Could not download translations because the computer is offline.": "Impossible de télécharger les traductions car l'ordinateur est hors ligne.",
+        "FreeCAD Update Checker successfully installed.": "FreeCAD Update Checker a été installé avec succès.",
+        "Please restart FreeCAD for changes to take effect.\nRestart FreeCAD?": "Veuillez redémarrer FreeCAD pour que les modifications prennent effet.\nRedémarrer FreeCAD ?",
+        "Restart Required": "Redémarrage requis",
+        "Now": "Maintenant",
+        "Later": "Plus tard",
+        "Installation cancelled": "Installation annulée",
+        "No files have been installed.": "Aucun fichier n’a été installé.",
+    },
+    'German': {
+        "FreeCAD Update Checker installation": "Installation des FreeCAD Update Checker",
+        "This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten. \n Would you like to continue ?":
+            "Dieses Makro erstellt einen Ordner in Ihrem Benutzerverzeichnis, um die Dateien zu installieren, die zum Überprüfen von FreeCAD-Updates erforderlich sind. Wenn FreeCAD Update Checker bereits installiert ist, werden die Dateien überschrieben.\nMöchten Sie fortfahren?",
+        "Install language packs": "Sprachpakete installieren",
+        "Yes": "Ja",
+        "No": "Nein",
+        "Error": "Fehler",
+        "No Internet connection": "Keine Internetverbindung",
+        "Could not download translations because the computer is offline.": "Übersetzungen konnten nicht heruntergeladen werden, da der Computer offline ist.",
+        "FreeCAD Update Checker successfully installed.": "FreeCAD Update Checker wurde erfolgreich installiert.",
+        "Please restart FreeCAD for changes to take effect.\nRestart FreeCAD?": "Bitte starten Sie FreeCAD neu, damit die Änderungen wirksam werden.\nFreeCAD jetzt neu starten?",
+        "Restart Required": "Neustart erforderlich",
+        "Now": "Jetzt",
+        "Later": "Später",
+        "Installation cancelled": "Installation abgebrochen",
+        "No files have been installed.": "Es wurden keine Dateien installiert.",
+    },
+    'Spanish': {
+        "FreeCAD Update Checker installation": "Instalación de FreeCAD Update Checker",
+        "This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten. \n Would you like to continue ?":
+            "Esta macro creará una carpeta en tu espacio de usuario para instalar los archivos necesarios para comprobar las actualizaciones de FreeCAD. Si FreeCAD Update Checker ya está instalado, los archivos serán sobrescritos.\n¿Deseas continuar?",
+        "Install language packs": "Instalar paquetes de idioma",
+        "Yes": "Sí",
+        "No": "No",
+        "Error": "Error",
+        "No Internet connection": "Sin conexión a Internet",
+        "Could not download translations because the computer is offline.": "No se pudieron descargar las traducciones porque el equipo está sin conexión.",
+        "FreeCAD Update Checker successfully installed.": "FreeCAD Update Checker se ha instalado correctamente.",
+        "Please restart FreeCAD for changes to take effect.\nRestart FreeCAD?": "Por favor, reinicia FreeCAD para que los cambios surtan efecto.\n¿Reiniciar FreeCAD?",
+        "Restart Required": "Reinicio requerido",
+        "Now": "Ahora",
+        "Later": "Más tarde",
+        "Installation cancelled": "Instalación cancelada",
+        "No files have been installed.": "No se ha instalado ningún archivo.",
+    },
+    'Polish': {
+        "FreeCAD Update Checker installation": "Instalacja FreeCAD Update Checker",
+        "This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten. \n Would you like to continue ?":
+            "Makro utworzy folder w Twojej przestrzeni użytkownika, aby zainstalować pliki potrzebne do sprawdzania aktualizacji FreeCAD. Jeśli FreeCAD Update Checker jest już zainstalowany, pliki zostaną nadpisane.\nCzy chcesz kontynuować?",
+        "Install language packs": "Zainstaluj pakiety językowe",
+        "Yes": "Tak",
+        "No": "Nie",
+        "Error": "Błąd",
+        "No Internet connection": "Brak połączenia z Internetem",
+        "Could not download translations because the computer is offline.": "Nie można pobrać tłumaczeń, ponieważ komputer jest offline.",
+        "FreeCAD Update Checker successfully installed.": "FreeCAD Update Checker został pomyślnie zainstalowany.",
+        "Please restart FreeCAD for changes to take effect.\nRestart FreeCAD?": "Uruchom ponownie FreeCAD, aby zmiany zaczęły obowiązywać.\nUruchomić ponownie FreeCAD?",
+        "Restart Required": "Wymagane ponowne uruchomienie",
+        "Now": "Teraz",
+        "Later": "Później",
+        "Installation cancelled": "Instalacja anulowana",
+        "No files have been installed.": "Nie zainstalowano żadnych plików.",
+    },
+    'English': {}  # Default value
+}
+
+def get_user_language():
+    lang = App.ParamGet("User parameter:BaseApp/Preferences/General").GetString("Language", "")
+    if lang and lang != "Default":
+        return lang
+    else:
+        'English'
+
+lang = get_user_language()
+
+def tr(text):
+    return translations.get(lang, {}).get(text, text)
+
+# --- Utilities ---
 def get_freecad_user_mod_path():
     system = platform.system()
     if system == "Windows":
@@ -437,25 +529,26 @@ def get_freecad_user_mod_path():
         base_path = Path.home() / ".FreeCAD"
     return base_path / "Mod" / "CheckUpdate"
 
+# --- Class dialog ---
 class InstallationDialog(QDialog):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("FreeCAD Update Checker installation")
+        self.setWindowTitle(tr("FreeCAD Update Checker installation"))
         self.setModal(True)
         self.resize(400, 200)
 
         layout = QVBoxLayout(self)
 
-        label = QLabel("This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten.")
+        label = QLabel(tr("This macro will create a folder in your user space to install the files needed to check for FreeCAD updates. If FreeCAD Update Checker is already installed, the files will be overwritten. \n Would you like to continue ?"))
         label.setWordWrap(True)
         layout.addWidget(label)
 
-        self.checkbox = QCheckBox("Install language packs")
+        self.checkbox = QCheckBox(tr("Install language packs"))
         layout.addWidget(self.checkbox)
 
         buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Yes | QtWidgets.QDialogButtonBox.No)
-        buttons.button(QtWidgets.QDialogButtonBox.Yes).setText("Yes")
-        buttons.button(QtWidgets.QDialogButtonBox.No).setText("No")
+        buttons.button(QtWidgets.QDialogButtonBox.Yes).setText(tr("Yes"))
+        buttons.button(QtWidgets.QDialogButtonBox.No).setText(tr("No"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
@@ -464,7 +557,6 @@ class InstallationDialog(QDialog):
         return self.checkbox.isChecked()
 
 def has_internet_connection(host="8.8.8.8", port=53, timeout=3):
-    """Test réseau basique via un serveur DNS (Google)."""
     try:
         socket.setdefaulttimeout(timeout)
         socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
@@ -487,15 +579,14 @@ def download_translations(destination_folder):
                 file_path = destination_folder / file_info['name']
                 urllib.request.urlretrieve(download_url, file_path)
     except Exception as e:
-        QtWidgets.QMessageBox.warning(None, "Error", str(e))
+        QtWidgets.QMessageBox.warning(None, tr("Error"), str(e))
 
-# --- Code principal ---
+# --- Main code ---
 dialog = InstallationDialog()
 if dialog.exec() == QDialog.Accepted:
     mod_path = get_freecad_user_mod_path()
     mod_path.mkdir(parents=True, exist_ok=True)
 
-    # Fichiers principaux (à adapter à ton script réel)
     (mod_path / "InitGui.py").write_text(init_gui_content, encoding='utf-8')
     (mod_path / "CheckUpdate.py").write_text(check_update_content, encoding='utf-8')
 
@@ -506,21 +597,20 @@ if dialog.exec() == QDialog.Accepted:
             download_translations(translations_path)
         else:
             QtWidgets.QMessageBox.warning(None,
-                "No Internet connection",
-                "Could not download translations because the computer is offline.")
+                tr("No Internet connection"),
+                tr("Could not download translations because the computer is offline."))
 
-    # Demander à redémarrer FreeCAD
     msg = QMessageBox()
     msg.setIcon(QMessageBox.Information)
-    msg.setText("FreeCAD Update Checker successfully installed.")
-    msg.setInformativeText("Please restart FreeCAD for changes to take effect.\nRestart FreeCAD?")
-    msg.setWindowTitle("Restart Required")
+    msg.setText(tr("FreeCAD Update Checker successfully installed."))
+    msg.setInformativeText(tr("Please restart FreeCAD for changes to take effect.\nRestart FreeCAD?"))
+    msg.setWindowTitle(tr("Restart Required"))
     msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
 
     nowButton = msg.button(QMessageBox.Yes)
-    nowButton.setText("Now")
+    nowButton.setText(tr("Now"))
     laterButton = msg.button(QMessageBox.No)
-    laterButton.setText("Later")
+    laterButton.setText(tr("Later"))
 
     response = msg.exec()
     if response == QMessageBox.Yes:
@@ -529,5 +619,5 @@ if dialog.exec() == QDialog.Accepted:
             QtCore.QProcess.startDetached(QtWidgets.QApplication.applicationFilePath(), args)
 else:
     QtWidgets.QMessageBox.information(None,
-        "Installation cancelled",
-        "No files have been installed.")
+        tr("Installation cancelled"),
+        tr("No files have been installed."))
