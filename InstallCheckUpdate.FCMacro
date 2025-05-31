@@ -57,7 +57,7 @@ import FreeCAD as App
 import FreeCADGui as Gui
 from functools import partial
 from PySide.QtCore import QTimer, QPoint
-from PySide.QtWidgets import QToolTip
+from PySide.QtWidgets import QToolTip, QToolBar
 translate = App.Qt.translate
 
 # Add translations path
@@ -195,7 +195,7 @@ def add_button(icon, tooltip):
     mw = Gui.getMainWindow()
     toolbar = mw.findChild(QtWidgets.QToolBar, "FreeCADUpdateToolbar")
     if not toolbar:
-        toolbar = mw.addToolBar("FreeCAD Update")
+        toolbar = mw.addToolBar("FreeCAD Update Checker")
         toolbar.setObjectName("FreeCADUpdateToolbar")
 
     # Supprimer les anciens boutons nommés
