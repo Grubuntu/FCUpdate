@@ -597,22 +597,58 @@ def has_internet_connection(host="8.8.8.8", port=53, timeout=3):
     except Exception:
         return False
 
+# def download_translations(destination_folder):
+    # api_url = "https://api.github.com/repos/Grubuntu/FCUpdate/contents/translations"
+    # headers = {'Accept': 'application/vnd.github.v3+json'}
+
+    # try:
+        # request = urllib.request.Request(api_url, headers=headers)
+        # with urllib.request.urlopen(request) as response:
+            # data = json.loads(response.read().decode())
+
+        # for file_info in data:
+            # if file_info['name'].endswith('.qm') or file_info['name'].endswith('.ts'):
+                # download_url = file_info['download_url']
+                # file_path = destination_folder / file_info['name']
+                # urllib.request.urlretrieve(download_url, file_path)
+    # except Exception as e:
+        # QtWidgets.QMessageBox.warning(None, tr("Error"), str(e))
 def download_translations(destination_folder):
     api_url = "https://api.github.com/repos/Grubuntu/FCUpdate/contents/translations"
     headers = {'Accept': 'application/vnd.github.v3+json'}
+
+    progress_dialog = QtWidgets.QProgressDialog(
+        tr("Downloading translation files..."), tr("Cancel"), 0, 0)
+    progress_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
+    progress_dialog.setMinimumDuration(0)
+    progress_dialog.setValue(0)
+    progress_dialog.show()
+    QtWidgets.QApplication.processEvents()
 
     try:
         request = urllib.request.Request(api_url, headers=headers)
         with urllib.request.urlopen(request) as response:
             data = json.loads(response.read().decode())
 
+        total_files = len([f for f in data if f['name'].endswith('.qm') or f['name'].endswith('.ts')])
+        progress_dialog.setMaximum(total_files)
+
+        downloaded = 0
         for file_info in data:
-            if file_info['name'].endswith('.qm'):
+            if file_info['name'].endswith('.qm') or file_info['name'].endswith('.ts'):
+                if progress_dialog.wasCanceled():
+                    break
                 download_url = file_info['download_url']
                 file_path = destination_folder / file_info['name']
                 urllib.request.urlretrieve(download_url, file_path)
+                downloaded += 1
+                progress_dialog.setValue(downloaded)
+                QtWidgets.QApplication.processEvents()
     except Exception as e:
         QtWidgets.QMessageBox.warning(None, tr("Error"), str(e))
+    finally:
+        progress_dialog.close()
+
 
 # --- Main code ---
 dialog = InstallationDialog()
