@@ -85,7 +85,7 @@ CONFIG_DIR = get_freecad_config_dir()
 CONFIG_FILE = os.path.join(CONFIG_DIR, "FCUpdate.cfg")
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
-ICON_VIEW_FILES = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_FileDialogDetailedView)
+ICON_UPDATE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_BrowserReload)
 
 update_available = False
 
@@ -194,6 +194,10 @@ def addMenu():
     if not action:
         actionFCUpdate.setObjectName("FCUpdateMenu")
         actionFCUpdate.triggered.connect(display_freecad_update)
+        iconeFCUpdate.setObjectName("FCUpdateMenu")
+        iconeFCUpdate.triggered.connect(display_freecad_update)
+        iconeFCUpdate.setIcon(ICON_UPDATE)
+        
         mw.menuBar().addAction(actionFCUpdate)
         menu = QtGui.QMenu()
 
@@ -210,11 +214,12 @@ def addMenu():
 
     # Mise à jour du texte selon l'état
     if update_available:
-        actionFCUpdate.setText("🚀 FCUpdate")
-    else:
-        actionFCUpdate.setText("FCUpdate")
+        mw.menuBar().addAction(iconeFCUpdate)
 
+    else:
+        mw.menuBar().removeAction(iconeFCUpdate)
     return actionFCUpdate
+
 
 # check the updates available online
 def check_for_updates():
@@ -233,10 +238,12 @@ def check_for_updates():
     if remote and local and remote > local:
         global update_available
         update_available = True
-        actionFCUpdate.setText("🚀 FCUpdate")
+        # actionFCUpdate.setText("🚀 FCUpdate")
+        mw.menuBar().addAction(iconeFCUpdate)
     else:
         update_available = False
-        actionFCUpdate.setText("FCUpdate")
+        # actionFCUpdate.setText("FCUpdate")
+        mw.menuBar().removeAction(iconeFCUpdate)
     return update_available
 
 def load_config():
@@ -446,6 +453,7 @@ def run():
 display_update_window = None
 mw = Gui.getMainWindow()
 actionFCUpdate = QtGui.QAction("FCUpdate", mw)
+iconeFCUpdate = QtGui.QAction("", mw)
 '''
 
 import os
