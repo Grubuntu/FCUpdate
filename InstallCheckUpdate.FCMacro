@@ -83,11 +83,20 @@ def get_freecad_config_dir():
 
 CONFIG_DIR = get_freecad_config_dir()
 CONFIG_FILE = os.path.join(CONFIG_DIR, "FCUpdate.cfg")
+CACHE_FILE = os.path.join(CONFIG_DIR, "FCUpdate_cache.txt")
 os.makedirs(CONFIG_DIR, exist_ok=True)
 
-ICON_UPDATE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_BrowserReload)
+ICON_CHECK = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_BrowserReload)
+ICON_UPDATE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_DialogOkButton)
+ICON_RELEASE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_FileDialogContentsView)
+ICON_ABOUT = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_MessageBoxInformation)
 
 update_available = False
+display_update_window = None
+mw = Gui.getMainWindow()
+actionFCUpdate = QtGui.QAction("FCUpdate", mw)
+iconeFCUpdate = QtGui.QAction("", mw)
+t = QtCore.QTimer()
 
 # === FONCTIONS VERSIONS ===
 # get type of version : Stable or Dev(Weekly)
@@ -107,8 +116,8 @@ def get_freecad_version_type():
 
     # Détection Stable
     if "detached at" in git_branch:
-        if major == "1" and minor == "0":
-            return "FreeCAD 1.0.x Stable"
+        if major and minor:
+            return ("FreeCAD {}.{}.x Stable").format(major, minor)
         return "FreeCAD Stable Release"
 
     # Détection Weekly
@@ -117,58 +126,107 @@ def get_freecad_version_type():
 
     return (translate("MainWindow", "FreeCAD customised or unknown version"))
 
-# get curent version of FreeCAD
+# get current version of FreeCAD
 def get_local_build_number():
     build_str = App.Version()[3]
     match = re.search(r'(\d+)', build_str)
     return int(match.group(1)) if match else None
 
-# get last weekly version online
+# get last weekly version in cache
 def get_remote_build_number():
+    _, results = read_cache()
     try:
-        with requests.get(URL_WEEKLY, timeout=10) as r:
-            r.raise_for_status()
-            html = r.text
-            match = re.search(r"FreeCAD_weekly-builds-(\d+)-", html)
-            return int(match.group(1)) if match else None
+        for entry in results:
+            name = entry[0]
+            if name.startswith("FreeCAD_weekly-builds-") and "-Windows-x86_64" in name:
+                match = re.search(r"FreeCAD_weekly-builds-(\d+)-", name)
+                if match:
+                    return int(match.group(1))
+        return None
     except Exception as e:
-        App.Console.PrintError(translate("MainWindow", "Error retrieving online version:{}").format(e))
+        App.Console.PrintError(
+            translate("MainWindow", "Error retrieving online version: {}").format(e)
+        )
         return None
 
-# get last stable version online
+# get last stable version in cache
 def get_remote_stable_version():
-    try:
-        r = requests.get(URL_STABLE, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        tag = data.get("tag_name", "")
-        match = re.match(r"v?(\d+\.\d+\.\d+)", tag)
-        return match.group(1) if match else None
-    except Exception as e:
-        App.Console.PrintError(translate("MainWindow", "Error retrieving online version:{}").format(e))
-        return None
+    _, results = read_cache()
+    for ligne in results:
+        if isinstance(ligne, list) and isinstance(ligne[0], str):
+            match = re.search(r"FreeCAD[_-](\d+\.\d+\.\d+)", ligne[0])
+            if match:
+                return match.group(1)
+    return None
 
 # === CACHE ===
 # read data in cache to limit API access 
 def read_cache():
-    if not os.path.exists(CONFIG_FILE):
+    if not os.path.exists(CACHE_FILE):
         return None, []
     try:
-        with open(CONFIG_FILE, "r") as f:
-            data = json.load(f)
-            last_check = datetime.fromisoformat(data.get("last_check", ""))
+        with open(CACHE_FILE, "r") as f:
+            content = f.read().strip()
+            if not content:
+                return None, []
+
+            data = json.loads(content)
+
+            last_check_str = data.get("last_check", "")
+            try:
+                last_check = datetime.fromisoformat(last_check_str) if last_check_str else None
+            except ValueError:
+                last_check = None
+
             results = data.get("results_cache", [])
             return last_check, results
-    except Exception:
+    except Exception as e:
+        print("❌ Erreur lors de la lecture du cache :", e)
         return None, []
 
-# save data in cache
 def write_cache(last_check, results_cache):
-    with open(CONFIG_FILE, "w") as f:
-        json.dump({
-            "last_check": last_check.isoformat() if last_check else "",
-            "results_cache": results_cache
-        }, f, indent=4)
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+
+        with open(CACHE_FILE, "w") as f:
+            json.dump({
+                "last_check": last_check.isoformat() if last_check else "",
+                "results_cache": results_cache
+            }, f, indent=4)
+            f.flush()
+            os.fsync(f.fileno())
+
+    except Exception as e:
+        print("❌ Erreur d’écriture du cache de FCUpdate:", e)
+        
+# construct list of files available
+def fetch_all_files(forceReload=False):
+    now = datetime.now()
+    last_check, cached_results = read_cache()
+    global update_available
+    results = []
+    def fetch(url, section):
+        results.append((section, ""))
+        try:
+            r = requests.get(url, timeout=10)
+            r.raise_for_status()
+            for asset in r.json().get("assets", []):
+                name = asset.get("name", "")
+                durl = asset.get("browser_download_url", "")
+                results.append((name, durl))
+        except Exception as e:
+            App.Console.PrintError(translate("Console", "❌ Error retrieving {} : {}").format(section, e))
+
+    if not last_check or now - last_check > MINIMUM_CHECK_INTERVAL or forceReload:
+        print("FETCH ONLINE")
+        fetch(URL_STABLE, translate("Table", "Canal Stable :"))
+        fetch(URL_WEEKLY, translate("Table", "Canal Development :"))
+        write_cache(now, results)
+    else:
+        print("FETCH ONCACHE")
+        results = cached_results
+
+    return results
 
 # === BOUTON / INTERFACE ===
 # add menu FCUpdate in FreeCAD
@@ -193,39 +251,71 @@ def addMenu():
     action = mw.findChild(QtGui.QAction, "FCUpdateMenu")
     if not action:
         actionFCUpdate.setObjectName("FCUpdateMenu")
-        actionFCUpdate.triggered.connect(display_freecad_update)
         iconeFCUpdate.setObjectName("FCUpdateMenu")
         iconeFCUpdate.triggered.connect(display_freecad_update)
         iconeFCUpdate.setIcon(ICON_UPDATE)
-        
+
         mw.menuBar().addAction(actionFCUpdate)
         menu = QtGui.QMenu()
 
-        #### code pour ajouter un sous menu plus tard...
-        ## création d'un sous-menu 
-        # sousMenu = QtGui.QAction(mw)
-        # sousMenu.setText(translate("Menu", "Texte Sous Menu 1"))
-        # sousMenu.setObjectName("Sous Menu 1")
-        # sousMenu.triggered.connect(UneAction)
-        ## definir le bouton actionFCUpdate comme Menu
-        # actionFCUpdate.setMenu(menu)
-        ## ajouter le sous menu
-        # menu.addAction(sousMenu)
+        sousMenu1 = QtGui.QAction(mw)
+        sousMenu1.setText(translate("Menu", "Check Updates"))
+        sousMenu1.setIcon(ICON_CHECK)
+        sousMenu1.setObjectName("Check Updates")
+        sousMenu1.triggered.connect(lambda: check_for_updates(True))
 
-    # Mise à jour du texte selon l'état
+        sousMenu2 = QtGui.QAction(mw)
+        sousMenu2.setText(translate("Menu", "FreeCAD Releases..."))
+        sousMenu2.setIcon(ICON_RELEASE)
+        sousMenu2.setObjectName("FreeCAD Releases...")
+        sousMenu2.triggered.connect(display_freecad_update)
+        
+        sousMenu3 = QtGui.QAction(mw)
+        sousMenu3.setText(translate("Menu", "About FCUpdate"))
+        sousMenu3.setIcon(ICON_ABOUT)
+        sousMenu3.setObjectName("About FCUpdate")
+        sousMenu3.triggered.connect(infoPopup)
+        
+        # definir le bouton actionFCUpdate comme Menu
+        actionFCUpdate.setMenu(menu)
+        # ajouter le sous menu
+        menu.addAction(sousMenu1)
+        menu.addAction(sousMenu2)
+        menu.addAction(sousMenu3)
+
     if update_available:
         mw.menuBar().addAction(iconeFCUpdate)
-
     else:
         mw.menuBar().removeAction(iconeFCUpdate)
+
     return actionFCUpdate
 
+def infoPopup():
+    msg = """
+        <h2>FCUpdate</h2>
+        <p style='font-weight:normal;font-style:italic;'>version """ + FCUPDATEVERSION + """</p>
+        <p style='font-weight:normal;'>FCUpdate help to easily retrieve FreeCAD update from github server.</p>
+        <p>Visit <a href='https://github.com/Grubuntu/FCUpdate/'>https://github.com/Grubuntu/FCUpdate/</a></p>
+        <hr>
+        <h2>Licence</h2>
+        <p style='font-weight:normal;'>Copyright (C) 2025 Grubuntu</p>
+      
+        <p style='font-weight:normal;'>This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version.</p>
+        <p style='font-weight:normal;'>This library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.</p>
+        <p style='font-weight:normal;'>You should have received a copy of the GNU Lesser General Public License along with this library; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA</p>
+    """
+    QtGui.QMessageBox.question(None, "Help", msg, QtGui.QMessageBox.Ok)
 
-# check the updates available online
-def check_for_updates():
+def check_for_updates(showMessage=False):
+    global update_available
+    mw = App.Gui.getMainWindow()
+
     version_type = get_freecad_version_type()
-    tooltip = translate("Tooltip", "⁉️ Unable to determine the version.")
     local, remote = None, None
+
+    last_check, cached_results = read_cache()
+    if not last_check:
+        fetch_all_files(True)
 
     if "Weekly" in version_type:
         local = get_local_build_number()
@@ -233,28 +323,72 @@ def check_for_updates():
     elif "Stable" in version_type:
         local = ".".join(App.Version()[0:3])
         remote = get_remote_stable_version()
-
-    # Affichage mise à jour dispo
-    if remote and local and remote > local:
-        global update_available
-        update_available = True
-        # actionFCUpdate.setText("🚀 FCUpdate")
-        mw.menuBar().addAction(iconeFCUpdate)
     else:
-        update_available = False
-        # actionFCUpdate.setText("FCUpdate")
-        mw.menuBar().removeAction(iconeFCUpdate)
+        if showMessage:
+            tooltip = translate("Tooltip", "⁉️ Unable to identify the current version.")
+            QtGui.QMessageBox.warning(None, "Error", tooltip)
+        return False
+
+    if remote and local and remote > local:
+        update_available = True
+
+        if showMessage:
+            msg_box = QtGui.QMessageBox()
+            msg_box.setIcon(QtGui.QMessageBox.Information)
+            msg_box.setWindowTitle(translate("Update Message","Update available"))
+            msg_box.setText(translate("Update Message", "FreeCAD new version is available."))
+            msg_box.setInformativeText(translate("Dialog", "Current version : {}\\nNew version available : {}").format(local, remote))
+            msg_box.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Close)
+            result = msg_box.exec()
+
+            if result == QtGui.QMessageBox.Ok:
+                display_freecad_update()
+
+        if iconeFCUpdate not in mw.menuBar().actions():
+            mw.menuBar().addAction(iconeFCUpdate)
+    else:
+        if showMessage:
+            QtGui.QMessageBox.information(
+                None, translate("Update Message", 
+                "No update available"),
+                translate("Update Message", "No update is currently available.")
+            )
+        if iconeFCUpdate in mw.menuBar().actions():
+            mw.menuBar().removeAction(iconeFCUpdate)
+
     return update_available
 
 def load_config():
-    if os.path.exists(CONFIG_FILE):
+    if not os.path.exists(CONFIG_FILE):
+        return {}
+
+    try:
         with open(CONFIG_FILE, "r") as f:
-            return json.load(f)
-    return {}
+            content = f.read().strip()
+            if not content:
+                # Fichier vide
+                return {}
+            return json.loads(content)
+    except (json.JSONDecodeError, IOError) as e:
+        # Optionnel : print ou logger l'erreur
+        print(f"Erreur en lisant le fichier de config : {e}")
+        return {}
 
 def save_config(config):
+    # Charger le cache existant
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, "r") as f:
+                existing = json.load(f)
+        except Exception:
+            existing = {}
+    else:
+        existing = {}
+
+    existing.update(config)
+    os.makedirs(CONFIG_DIR, exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
-        json.dump(config, f, indent=4)
+        json.dump(existing, f, indent=4)
 
 def get_file_type(file_name):
     if file_name.endswith("SHA256.txt") or "SHA256" in file_name:
@@ -263,14 +397,14 @@ def get_file_type(file_name):
         return "Windows"
     elif file_name.endswith(".AppImage") or "Linux" in file_name:
         return "Linux"
-    elif file_name.endswith(".dmg") or "Mac" in file_name:
-        return "MacOS"
+    elif file_name.endswith(".dmg") or "macOS" in file_name:
+        return "macOS"
     elif file_name.endswith(".tar.gz") or file_name.endswith(".zip"):
-        return "Source"
+        return "source"
     return "Other"
 
+
 # === FENÊTRE PRINCIPALE ===
-# main class for FCUpdate
 class FreeCADUpdateChecker(QtWidgets.QDialog):
     def __init__(self):
         super().__init__()
@@ -281,7 +415,9 @@ class FreeCADUpdateChecker(QtWidgets.QDialog):
         self.setModal(True)
         self.results = []
         self.setup_ui()
-        self.load_data()
+        # Appel initial du filtre si des fichiers sont déjà chargés
+        self.apply_filter()
+        self.load_data(False)
 
     def setup_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
@@ -295,12 +431,10 @@ class FreeCADUpdateChecker(QtWidgets.QDialog):
         self.liste_files.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
         self.liste_files.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.Stretch)
 
-        # Zone des checkboxes de filtrage
         self.filter_checkboxes = {}
         filter_layout = QtWidgets.QHBoxLayout()
 
-        # Valeurs des types à filtrer
-        filter_types = ["Windows", "Linux", "MacOS", "Source", "SHA256"]
+        filter_types = ["Windows", "Linux", "macOS", "source", "SHA256"]
         self.config = load_config()
 
         for name in filter_types:
@@ -316,8 +450,10 @@ class FreeCADUpdateChecker(QtWidgets.QDialog):
 
         button_layout = QtWidgets.QHBoxLayout()
         update_btn = QtWidgets.QPushButton(translate("MainWindow", "Reload"))
-        update_btn.clicked.connect(self.force_update)
+        update_btn.setToolTip("Force update check now")
+        update_btn.clicked.connect(lambda: self.load_data(True))
         close_btn = QtWidgets.QPushButton(translate("MainWindow", "Close"))
+        close_btn.setToolTip("Close this window")
         close_btn.clicked.connect(self.close)
 
         button_layout.addWidget(update_btn)
@@ -327,9 +463,6 @@ class FreeCADUpdateChecker(QtWidgets.QDialog):
         layout.addLayout(filter_layout)
         layout.addWidget(self.status_label)
         layout.addLayout(button_layout)
-
-        # Appel initial du filtre si des fichiers sont déjà chargés
-        self.apply_filter()
 
     def apply_filter(self):
         for key, cb in self.filter_checkboxes.items():
@@ -347,56 +480,34 @@ class FreeCADUpdateChecker(QtWidgets.QDialog):
             else:
                 file_name = item.text()
                 file_type = get_file_type(file_name)
-                visible = self.filter_checkboxes.get(file_type, QtWidgets.QCheckBox()).isChecked()
+
+                # Premier filtre : est-ce que ce type est coché ?
+                is_checked = self.filter_checkboxes.get(file_type, QtWidgets.QCheckBox()).isChecked()
+
+                # Deuxième filtre pour SHA256 : ne s'affiche que si un fichier associé est visible
+                if file_type == "SHA256":
+                    visible = False
+                    for os_type in ("Windows", "Linux", "macOS", "source"):
+                        if os_type in file_name and self.filter_checkboxes.get(os_type, QtWidgets.QCheckBox()).isChecked():
+                            visible = True
+                            break
+                    # Et bien sûr, il faut aussi que SHA256 soit coché
+                    visible = visible and is_checked
+                else:
+                    visible = is_checked
+
                 self.liste_files.setRowHidden(row, not visible)
 
-    def load_data(self):
-        last_check, cached_results = read_cache()
+    def load_data(self, forceReload):
+        self.results = fetch_all_files(forceReload)
         now = datetime.now()
-        global update_available
-        if not last_check or now - last_check > MINIMUM_CHECK_INTERVAL:
-            self.results = self.fetch_all_files()
-            write_cache(now, self.results)
-            self.status_label.setText(translate("Status", "Updates checked."))
-            if update_available :
-                self.status_label.setText(translate("Status", "Updates checked. An update is available !"))
-        else:
-            self.results = cached_results
-            minutes = int((now - last_check).total_seconds() // 60)
-            self.status_label.setText(translate("Status", "Last check {} minutes ago.").format(minutes))
-            if update_available :
-                self.status_label.setText(translate("Status", "Last check {} minutes ago. An update is available !").format(minutes))
-
-        self.update_ui(self.results)
-
-    def force_update(self):
-        global update_available
-        self.results = self.fetch_all_files()
-        check_for_updates()
-        write_cache(datetime.now(), self.results)
-        self.status_label.setText(translate("Status", "Updates checked no update available."))
+        last_check, cached_results = read_cache()
+        minutes = int((now - last_check).total_seconds() // 60)
         if update_available :
-            self.status_label.setText(translate("Status", "Updates checked. An update is available !"))
+            self.status_label.setText(translate("Status", "Last check {} minutes ago. An update is available !").format(minutes))
+        else:
+            self.status_label.setText(translate("Status", "Last check {} minutes ago. No update available !").format(minutes))
         self.update_ui(self.results)
-
-    # construct list of files available
-    def fetch_all_files(self):
-        results = []
-        def fetch(url, section):
-            results.append((section, ""))
-            try:
-                r = requests.get(url, timeout=10)
-                r.raise_for_status()
-                for asset in r.json().get("assets", []):
-                    name = asset.get("name", "")
-                    durl = asset.get("browser_download_url", "")
-                    results.append((name, durl))
-            except Exception as e:
-                App.Console.PrintError(translate("Console", "❌ Error retrieving {} : {}").format(section, e))
-
-        fetch(URL_STABLE, translate("Table", "Canal Stable :"))
-        fetch(URL_WEEKLY, translate("Table", "Canal Development :"))
-        return results
 
     # update list of files in tablewidget
     def update_ui(self, results):
@@ -440,7 +551,7 @@ def clear_reference():
     global display_update_window
     display_update_window = None
 
-t = QtCore.QTimer()
+# t = QtCore.QTimer()
 
 def run():
     t.timeout.connect(waitFreeCADReady)
@@ -449,11 +560,6 @@ def run():
         check_for_updates()
     else:
         print(translate("Console", "This macro requires FreeCAD graphique interface."))
-
-display_update_window = None
-mw = Gui.getMainWindow()
-actionFCUpdate = QtGui.QAction("FCUpdate", mw)
-iconeFCUpdate = QtGui.QAction("", mw)
 '''
 
 import os
