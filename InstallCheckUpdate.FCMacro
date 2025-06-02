@@ -246,6 +246,50 @@ def waitFreeCADReady():
         mw = Gui.getMainWindow()
         mw.workbenchActivated.connect(addMenu)
 
+# def addMenu():
+    # mw = Gui.getMainWindow()
+    # action = mw.findChild(QtGui.QAction, "FCUpdateMenu")
+    # if not action:
+        # actionFCUpdate.setObjectName("FCUpdateMenu")
+        # iconeFCUpdate.setObjectName("FCUpdateMenu")
+        # iconeFCUpdate.triggered.connect(display_freecad_update)
+        # iconeFCUpdate.setIcon(ICON_UPDATE)
+
+        # mw.menuBar().addAction(actionFCUpdate)
+        # menu = QtGui.QMenu()
+
+        # sousMenu1 = QtGui.QAction(mw)
+        # sousMenu1.setText(translate("Menu", "Check Updates"))
+        # sousMenu1.setIcon(ICON_CHECK)
+        # sousMenu1.setObjectName("Check Updates")
+        # sousMenu1.triggered.connect(lambda: check_for_updates(True))
+
+        # sousMenu2 = QtGui.QAction(mw)
+        # sousMenu2.setText(translate("Menu", "FreeCAD Releases..."))
+        # sousMenu2.setIcon(ICON_RELEASE)
+        # sousMenu2.setObjectName("FreeCAD Releases...")
+        # sousMenu2.triggered.connect(display_freecad_update)
+        
+        # sousMenu3 = QtGui.QAction(mw)
+        # sousMenu3.setText(translate("Menu", "About FCUpdate"))
+        # sousMenu3.setIcon(ICON_ABOUT)
+        # sousMenu3.setObjectName("About FCUpdate")
+        # sousMenu3.triggered.connect(infoPopup)
+        
+        # # definir le bouton actionFCUpdate comme Menu
+        # actionFCUpdate.setMenu(menu)
+        # # ajouter le sous menu
+        # menu.addAction(sousMenu1)
+        # menu.addAction(sousMenu2)
+        # menu.addAction(sousMenu3)
+
+    # if update_available:
+        # mw.menuBar().addAction(iconeFCUpdate)
+    # else:
+        # mw.menuBar().removeAction(iconeFCUpdate)
+
+    # return actionFCUpdate
+
 def addMenu():
     mw = Gui.getMainWindow()
     action = mw.findChild(QtGui.QAction, "FCUpdateMenu")
@@ -255,7 +299,8 @@ def addMenu():
         iconeFCUpdate.triggered.connect(display_freecad_update)
         iconeFCUpdate.setIcon(ICON_UPDATE)
 
-        mw.menuBar().addAction(actionFCUpdate)
+        # mw.menuBar().addAction(actionFCUpdate)
+        mw.menuBar().addMenu(actionFCUpdate)
         menu = QtGui.QMenu()
 
         sousMenu1 = QtGui.QAction(mw)
@@ -273,15 +318,19 @@ def addMenu():
         sousMenu3 = QtGui.QAction(mw)
         sousMenu3.setText(translate("Menu", "About FCUpdate"))
         sousMenu3.setIcon(ICON_ABOUT)
+        sousMenu3.setEnabled(True)
         sousMenu3.setObjectName("About FCUpdate")
         sousMenu3.triggered.connect(infoPopup)
         
         # definir le bouton actionFCUpdate comme Menu
-        actionFCUpdate.setMenu(menu)
+        # actionFCUpdate.setMenu(menu)
         # ajouter le sous menu
-        menu.addAction(sousMenu1)
-        menu.addAction(sousMenu2)
-        menu.addAction(sousMenu3)
+        # menu.addAction(sousMenu1)
+        # menu.addAction(sousMenu2)
+        # menu.addAction(sousMenu3)
+        actionFCUpdate.addAction(sousMenu1)
+        actionFCUpdate.addAction(sousMenu2)
+        actionFCUpdate.addAction(sousMenu3)
 
     if update_available:
         mw.menuBar().addAction(iconeFCUpdate)
