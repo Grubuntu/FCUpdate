@@ -4,88 +4,95 @@
 <context>
     <name>Console</name>
     <message>
-        <location filename="../FCUpdate.py" line="342"/>
+        <location filename="../FCUpdate.py" line="180"/>
         <source>❌ Error retrieving {} : {}</source>
         <translation>❌ Fehler beim Abrufen von {} : {}</translation>
     </message>
     <message>
-        <location filename="../FCUpdate.py" line="398"/>
+        <location filename="../FCUpdate.py" line="517"/>
         <source>This macro requires FreeCAD graphique interface.</source>
         <translation>Dieses Makro erfordert die grafische Oberfläche von FreeCAD.</translation>
     </message>
 </context>
 <context>
+    <name>Dialog</name>
+    <message>
+        <location filename="../FCUpdate.py" line="297"/>
+        <source>Current version : {}
+New version available : {}</source>
+        <translation>Aktuelle Version : {}
+Neue Version verfügbar : {}</translation>
+    </message>
+</context>
+<context>
     <name>MainWindow</name>
     <message>
-        <location filename="../FCUpdate.py" line="72"/>
+        <location filename="../FCUpdate.py" line="88"/>
         <source>FreeCAD customised or unknown version</source>
-        <translation>Angepasste oder unbekannte FreeCAD-Version</translation>
+        <translation>Benutzerdefinierte oder unbekannte Version von FreeCAD</translation>
     </message>
     <message>
-        <location filename="../FCUpdate.py" line="89"/>
-        <location filename="../FCUpdate.py" line="102"/>
-        <source>Error retrieving online version:{}</source>
+        <location filename="../FCUpdate.py" line="109"/>
+        <source>Error retrieving online version: {}</source>
         <translation>Fehler beim Abrufen der Online-Version: {}</translation>
     </message>
     <message>
-        <location filename="../FCUpdate.py" line="265"/>
+        <location filename="../FCUpdate.py" line="407"/>
         <source>Reload</source>
         <translation>Neu laden</translation>
     </message>
     <message>
-        <location filename="../FCUpdate.py" line="267"/>
+        <location filename="../FCUpdate.py" line="410"/>
         <source>Close</source>
         <translation>Schließen</translation>
     </message>
 </context>
 <context>
+    <name>Menu</name>
+    <message>
+        <location filename="../FCUpdate.py" line="217"/>
+        <source>Check Updates</source>
+        <translation>Updates überprüfen</translation>
+    </message>
+    <message>
+        <location filename="../FCUpdate.py" line="223"/>
+        <source>FreeCAD Releases...</source>
+        <translation>FreeCAD-Versionen...</translation>
+    </message>
+    <message>
+        <location filename="../FCUpdate.py" line="229"/>
+        <source>Infos FCUpdate</source>
+        <translation>Infos FCUpdate</translation>
+    </message>
+</context>
+<context>
     <name>Status</name>
     <message>
-        <location filename="../FCUpdate.py" line="260"/>
+        <location filename="../FCUpdate.py" line="402"/>
         <source>Loading...</source>
-        <translation>Lade…</translation>
+        <translation>Laden...</translation>
     </message>
     <message>
-        <location filename="../FCUpdate.py" line="307"/>
-        <source>Updates checked.</source>
-        <translation>Updates überprüft.</translation>
-    </message>
-    <message>
-        <location filename="../FCUpdate.py" line="309"/>
-        <location filename="../FCUpdate.py" line="326"/>
-        <source>Updates checked. An update is available !</source>
-        <translation>Updates überprüft. Ein Update ist verfügbar!</translation>
-    </message>
-    <message>
-        <location filename="../FCUpdate.py" line="313"/>
-        <source>Last check {} minutes ago.</source>
-        <translation>Letzte Überprüfung vor {} Minuten.</translation>
-    </message>
-    <message>
-        <location filename="../FCUpdate.py" line="315"/>
-        <source>Last check {} minutes ago. An update is available !</source>
-        <translation>Letzte Überprüfung vor {} Minuten. Ein Update ist verfügbar!</translation>
-    </message>
-    <message>
-        <location filename="../FCUpdate.py" line="324"/>
-        <source>Updates checked no update available.</source>
-        <translation>Updates überprüft, kein Update verfügbar.</translation>
+        <location filename="../FCUpdate.py" line="462"/>
+        <location filename="../FCUpdate.py" line="464"/>
+        <source>Last check {} minutes ago. {}</source>
+        <translation>Letzte Überprüfung vor {} Minuten. {}</translation>
     </message>
 </context>
 <context>
     <name>Table</name>
     <message>
-        <location filename="../FCUpdate.py" line="344"/>
+        <location filename="../FCUpdate.py" line="183"/>
         <source>Canal Stable :</source>
         <translation>Stabiler Kanal :</translation>
     </message>
     <message>
-        <location filename="../FCUpdate.py" line="345"/>
+        <location filename="../FCUpdate.py" line="184"/>
         <source>Canal Development :</source>
         <translation>Entwicklungskanal :</translation>
     </message>
     <message>
-        <location filename="../FCUpdate.py" line="370"/>
+        <location filename="../FCUpdate.py" line="489"/>
         <source>Download</source>
         <translation>Herunterladen</translation>
     </message>
@@ -93,9 +100,46 @@
 <context>
     <name>Tooltip</name>
     <message>
-        <location filename="../FCUpdate.py" line="177"/>
-        <source>⁉️ Unable to determine the version.</source>
-        <translation>⁉️ Version konnte nicht ermittelt werden.</translation>
+        <location filename="../FCUpdate.py" line="285"/>
+        <source>⁉️ Unable to identify the current version.</source>
+        <translation>⁉️ Die aktuelle Version konnte nicht identifiziert werden.</translation>
+    </message>
+</context>
+<context>
+    <name>Update Menu</name>
+    <message>
+        <location filename="../FCUpdate.py" line="59"/>
+        <source>No update available !</source>
+        <translation>Kein Update verfügbar!</translation>
+    </message>
+    <message>
+        <location filename="../FCUpdate.py" line="291"/>
+        <source>New version available : {}</source>
+        <translation>Neue Version verfügbar : {}</translation>
+    </message>
+    <message>
+        <location filename="../FCUpdate.py" line="305"/>
+        <source>No update.</source>
+        <translation>Kein Update.</translation>
+    </message>
+</context>
+<context>
+    <name>Update Message</name>
+    <message>
+        <location filename="../FCUpdate.py" line="295"/>
+        <source>Update available</source>
+        <translation>Update verfügbar</translation>
+    </message>
+    <message>
+        <location filename="../FCUpdate.py" line="296"/>
+        <source>FreeCAD new version is available.</source>
+        <translation>Eine neue Version von FreeCAD ist verfügbar.</translation>
+    </message>
+    <message>
+        <location filename="../FCUpdate.py" line="309"/>
+        <location filename="../FCUpdate.py" line="311"/>
+        <source>No update available !</source>
+        <translation>Kein Update verfügbar!</translation>
     </message>
 </context>
 </TS>
