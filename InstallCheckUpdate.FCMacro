@@ -91,15 +91,27 @@ ICON_UPDATE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_DialogOkBu
 ICON_RELEASE = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_FileDialogContentsView)
 ICON_ABOUT = QtGui.QApplication.style().standardIcon(QtGui.QStyle.SP_MessageBoxInformation)
 
+t = QtCore.QTimer()
+mw = Gui.getMainWindow()
+
+menuFCUpdate = QtGui.QMenu("FCUpdate", mw)
+menuFCUpdate.setObjectName("FCUpdateMenu")
+
+if sys.platform == "win32":
+    # Windows : émoji OK, icone OK
+    iconeFCUpdate = QtGui.QMenu("✅", mw)
+elif sys.platform == "darwin":
+    # MacOS : emoji OK, icone KO
+    iconeFCUpdate = QtGui.QMenu("✅", mw)
+else:
+    #Linux : émoji KO , icone OK
+    iconeFCUpdate = QtGui.QMenu("", mw)
+    iconeFCUpdate.setIcon(ICON_UPDATE)
+iconeFCUpdate.setObjectName("FCUpdateMenu")
+
+updateVersionText = "No update"
 update_available = False
 display_update_window = None
-mw = Gui.getMainWindow()
-# menuFCUpdate = QtGui.QAction("FCUpdate", mw)
-menuFCUpdate = QtGui.QMenu("FCUpdate", mw)
-# iconeFCUpdate = QtGui.QAction("", mw)
-iconeFCUpdate = QtGui.QMenu("", mw)
-t = QtCore.QTimer()
-updateVersionText = "No update"
 
 # === FONCTIONS VERSIONS ===
 # get type of version : Stable or Dev(Weekly)
@@ -254,10 +266,9 @@ def addMenu():
     mw = Gui.getMainWindow()
     action = mw.findChild(QtGui.QAction, "FCUpdateMenu")
     if not action:
-        menuFCUpdate.setObjectName("FCUpdateMenu")
-        iconeFCUpdate.setObjectName("FCUpdateMenu")
+
         # iconeFCUpdate.triggered.connect(display_freecad_update)
-        iconeFCUpdate.setIcon(ICON_UPDATE)
+
 
         mw.menuBar().addMenu(menuFCUpdate)
         mw.menuBar().addMenu(iconeFCUpdate)
@@ -375,8 +386,6 @@ def check_for_updates(showMessage=False):
                 "No update available"),
                 translate("Update Message", "No update is currently available.")
             )
-        if iconeFCUpdate in mw.menuBar().actions():
-            iconeFCUpdate.setIcon()
 
     iconeFCUpdate.menuAction().setVisible(update_available)
     return update_available
