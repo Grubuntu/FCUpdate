@@ -234,12 +234,10 @@ def fetch_all_files(forceReload=False):
             App.Console.PrintError(translate("Console", "❌ Error retrieving {} : {}").format(section, e))
 
     if not last_check or now - last_check > MINIMUM_CHECK_INTERVAL or forceReload:
-        print("FETCH ONLINE")
         fetch(URL_STABLE, translate("Table", "Canal Stable :"))
         fetch(URL_WEEKLY, translate("Table", "Canal Development :"))
         write_cache(now, results)
     else:
-        print("FETCH ONCACHE")
         results = cached_results
 
     return results
@@ -266,13 +264,8 @@ def addMenu():
     mw = Gui.getMainWindow()
     action = mw.findChild(QtGui.QAction, "FCUpdateMenu")
     if not action:
-
-        # iconeFCUpdate.triggered.connect(display_freecad_update)
-
-
         mw.menuBar().addMenu(menuFCUpdate)
         mw.menuBar().addMenu(iconeFCUpdate)
-        menu = QtGui.QMenu()
 
         sousMenu1 = QtGui.QAction(mw)
         sousMenu1.setText(translate("Menu", "Check Updates"))
@@ -287,17 +280,11 @@ def addMenu():
         sousMenu2.triggered.connect(display_freecad_update)
         
         sousMenu3 = QtGui.QAction(mw)
-        sousMenu3.setText(translate("Menu", "About FCUpdate"))
+        sousMenu3.setText(translate("Menu", "Infos FCUpdate"))
         sousMenu3.setIcon(ICON_ABOUT)
         sousMenu3.setEnabled(True)
-        sousMenu3.setObjectName("About FCUpdate")
+        sousMenu3.setObjectName("Infos FCUpdate")
         sousMenu3.triggered.connect(infoPopup)
-
-        sousMenu4 = QtGui.QAction(mw)
-        sousMenu4.setText(translate("Menu", "Test"))
-        sousMenu4.setEnabled(True)
-        sousMenu4.setObjectName("Test")
-        sousMenu4.triggered.connect(test)
 
         sousMenuUpdate = QtGui.QAction(mw)
         sousMenuUpdate.setText(translate("Menu", updateVersionText))
@@ -308,20 +295,10 @@ def addMenu():
         menuFCUpdate.addAction(sousMenu1)
         menuFCUpdate.addAction(sousMenu2)
         menuFCUpdate.addAction(sousMenu3)
-        menuFCUpdate.addAction(sousMenu4)
 
     iconeFCUpdate.menuAction().setVisible(update_available)
     iconeFCUpdate.addAction(sousMenuUpdate)
     return menuFCUpdate
-
-test = True
-### test 
-def test():
-    global test
-    print("test")
-    test = not test
-    iconeFCUpdate.menuAction().setVisible(test)
-
 
 def infoPopup():
     msg = """
@@ -592,7 +569,6 @@ def run():
         check_for_updates()
     else:
         print(translate("Console", "This macro requires FreeCAD graphique interface."))
-
 '''
 
 import os
