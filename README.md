@@ -6,7 +6,7 @@ A new menu will be added to FreeCAD's menu bar.
 
 ![Capture d’écran (31)](https://github.com/user-attachments/assets/95aebf76-52bd-4a31-acd0-26527f3898e9)
 
-You can choose to install a language pack during installation by checking the box. (FR, DE, ES, PL)
+You can choose to install the languages pack during installation by checking the box. (FR, DE, ES, PL)
 (The lang.ts file is available on GitHub if you want to add or correct translations.)
 
 ![Capture d’écran (28)](https://github.com/user-attachments/assets/1429b890-0491-4ccc-ab21-6226fe98095b)
