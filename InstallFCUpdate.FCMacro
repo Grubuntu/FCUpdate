@@ -44,7 +44,7 @@ Gui.getMainWindow().workbenchActivated.connect(runStartupMacros)
 
 # === Contenu du fichier FCUpdate.py ===
 check_update_content = '''\
-FCUPDATEVERSION = "1.0"
+FCUPDATEVERSION = "1.1"
 
 import os
 import re
@@ -96,20 +96,15 @@ mw = Gui.getMainWindow()
 
 menuFCUpdate = QtGui.QMenu("FCUpdate", mw)
 menuFCUpdate.setObjectName("FCUpdateMenu")
+menuFCUpdate.setVisible(True)
 
-if sys.platform == "win32":
-    # Windows : émoji OK, icone OK
-    iconeFCUpdate = QtGui.QMenu("✅", mw)
-elif sys.platform == "darwin":
-    # MacOS : emoji OK, icone KO
-    iconeFCUpdate = QtGui.QMenu("✅", mw)
-else:
-    #Linux : émoji KO , icone OK
-    iconeFCUpdate = QtGui.QMenu("", mw)
-    iconeFCUpdate.setIcon(ICON_UPDATE)
+iconeFCUpdate = QtGui.QMenu("", mw)
+iconeFCUpdate.setIcon(ICON_UPDATE)
 iconeFCUpdate.setObjectName("FCUpdateMenu")
 
-updateVersionText = "No update"
+sousMenuUpdate = QtGui.QAction(mw)
+
+updateVersionText = translate("Update Menu", "No update available !")
 update_available = False
 display_update_window = None
 
@@ -262,10 +257,8 @@ def waitFreeCADReady():
 
 def addMenu():
     mw = Gui.getMainWindow()
-    action = mw.findChild(QtGui.QAction, "FCUpdateMenu")
+    action = mw.findChild(QtGui.QAction, "Check Updates")
     if not action:
-        mw.menuBar().addMenu(menuFCUpdate)
-        mw.menuBar().addMenu(iconeFCUpdate)
 
         sousMenu1 = QtGui.QAction(mw)
         sousMenu1.setText(translate("Menu", "Check Updates"))
@@ -286,7 +279,7 @@ def addMenu():
         sousMenu3.setObjectName("Infos FCUpdate")
         sousMenu3.triggered.connect(infoPopup)
 
-        sousMenuUpdate = QtGui.QAction(mw)
+        # sousMenuUpdate = QtGui.QAction(mw)
         sousMenuUpdate.setText(translate("Menu", updateVersionText))
         sousMenuUpdate.setEnabled(True)
         sousMenuUpdate.setObjectName("SousMenuUpdate")
@@ -295,6 +288,9 @@ def addMenu():
         menuFCUpdate.addAction(sousMenu1)
         menuFCUpdate.addAction(sousMenu2)
         menuFCUpdate.addAction(sousMenu3)
+
+    mw.menuBar().addMenu(menuFCUpdate)
+    mw.menuBar().addMenu(iconeFCUpdate)
 
     iconeFCUpdate.menuAction().setVisible(update_available)
     iconeFCUpdate.addAction(sousMenuUpdate)
@@ -348,7 +344,7 @@ def check_for_updates(showMessage=False):
             msg_box.setIcon(QtGui.QMessageBox.Information)
             msg_box.setWindowTitle(translate("Update Message","Update available"))
             msg_box.setText(translate("Update Message", "FreeCAD new version is available."))
-            msg_box.setInformativeText(translate("Dialog", "Current version : {}\\nNew version available : {}").format(local, remote))
+            msg_box.setInformativeText(translate("Dialog", "Current version : {}" "\\nNew version available : {}").format(local, remote))
             msg_box.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Close)
             result = msg_box.exec()
 
@@ -360,8 +356,8 @@ def check_for_updates(showMessage=False):
         if showMessage:
             QtGui.QMessageBox.information(
                 None, translate("Update Message", 
-                "No update available"),
-                translate("Update Message", "No update is currently available.")
+                "No update available !"),
+                translate("Update Message", "No update available !")
             )
 
     iconeFCUpdate.menuAction().setVisible(update_available)
@@ -513,9 +509,9 @@ class FreeCADUpdateChecker(QtWidgets.QDialog):
         last_check, cached_results = read_cache()
         minutes = int((now - last_check).total_seconds() // 60)
         if update_available :
-            self.status_label.setText(translate("Status", "Last check {} minutes ago. An update is available !").format(minutes))
+            self.status_label.setText(translate("Status", "Last check {} minutes ago. {}").format(minutes, updateVersionText))
         else:
-            self.status_label.setText(translate("Status", "Last check {} minutes ago. No update available !").format(minutes))
+            self.status_label.setText(translate("Status", "Last check {} minutes ago. {}").format(minutes, updateVersionText))
         self.update_ui(self.results)
 
     # update list of files in tablewidget
@@ -569,6 +565,7 @@ def run():
         check_for_updates()
     else:
         print(translate("Console", "This macro requires FreeCAD graphique interface."))
+
 '''
 
 import os
