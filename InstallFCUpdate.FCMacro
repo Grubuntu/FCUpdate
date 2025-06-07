@@ -44,7 +44,7 @@ Gui.getMainWindow().workbenchActivated.connect(runStartupMacros)
 
 # === Contenu du fichier FCUpdate.py ===
 check_update_content = '''\
-FCUPDATEVERSION = "1.1"
+FCUPDATEVERSION = "1.2"
 
 import os
 import re
@@ -319,9 +319,7 @@ def check_for_updates(showMessage=False):
     version_type = get_freecad_version_type()
     local, remote = None, None
 
-    last_check, cached_results = read_cache()
-    if not last_check:
-        fetch_all_files(True)
+    fetch_all_files(False)
 
     if "Weekly" in version_type:
         local = get_local_build_number()
