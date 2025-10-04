@@ -44,7 +44,7 @@ Gui.getMainWindow().workbenchActivated.connect(runStartupMacros)
 
 # === Contenu du fichier FCUpdate.py ===
 check_update_content = '''\
-FCUPDATEVERSION = "1.2"
+FCUPDATEVERSION = "1.4"
 
 import os
 import re
@@ -63,13 +63,14 @@ from PySide.QtCore import QTimer, QPoint
 from PySide.QtWidgets import QToolTip, QToolBar
 translate = App.Qt.translate
 
+
+
 # Add translations path
 Gui.addLanguagePath(os.path.join(os.path.dirname(__file__), "translations"))
 Gui.updateLocale()
 
 # === CONFIGURATION ===
-URL_STABLE = "https://api.github.com/repos/FreeCAD/FreeCAD-Bundle/releases/latest"
-URL_WEEKLY = "https://api.github.com/repos/FreeCAD/FreeCAD-Bundle/releases/tags/weekly-builds"
+URL_RELEASES = "https://api.github.com/repos/FreeCAD/FreeCAD/releases?per_page=20"
 
 MINIMUM_CHECK_INTERVAL = timedelta(hours=1)
 
@@ -108,6 +109,37 @@ updateVersionText = translate("Update Menu", "No update available !")
 update_available = False
 display_update_window = None
 
+
+
+#### ajout d'un bouton pour masquer/afficher la console dans la barre d'état ####
+from PySide6 import QtWidgets
+import FreeCADGui as Gui
+
+# Récupère la fenêtre principale de FreeCAD
+mw = Gui.getMainWindow()
+sb = mw.statusBar()
+
+# Fonction de bascule pour la console Python et la vue Rapport
+def toggle_console_and_report():
+    py_console = mw.findChild(QtWidgets.QDockWidget, "Python console")
+    report_view = mw.findChild(QtWidgets.QDockWidget, "Report view")
+    
+    if py_console and report_view:
+        visible = py_console.isVisible() or report_view.isVisible()
+        py_console.setVisible(not visible)
+        report_view.setVisible(not visible)
+
+# Crée le bouton
+btn_toggle = QtWidgets.QPushButton("Afficher/Masquer Console")
+btn_toggle.setToolTip("Afficher ou masquer la console Python et la vue Rapport")
+btn_toggle.clicked.connect(toggle_console_and_report)
+
+# Ajoute le bouton à la barre de statut (à droite)
+sb.insertPermanentWidget(2, btn_toggle)
+
+#### ####
+
+
 # === FONCTIONS VERSIONS ===
 # get type of version : Stable or Dev(Weekly)
 def get_freecad_version_type():
@@ -137,25 +169,32 @@ def get_freecad_version_type():
     return (translate("MainWindow", "FreeCAD customised or unknown version"))
 
 # get current version of FreeCAD
-def get_local_build_number():
-    build_str = App.Version()[3]
-    match = re.search(r'(\d+)', build_str)
-    return int(match.group(1)) if match else None
+def get_local_build_date():
+    date_str = App.Version()[5]
+    try:
+        return datetime.strptime(date_str, '%Y/%m/%d %H:%M:%S')
+    except ValueError:
+        try:
+            return datetime.strptime(date_str, '%Y/%m/%d')
+        except ValueError:
+            App.Console.PrintError(translate("MainWindow", "Error parsing local build date: {}").format(date_str))
+            return None
 
 # get last weekly version in cache
-def get_remote_build_number():
+def get_remote_weekly_date():
     _, results = read_cache()
     try:
         for entry in results:
             name = entry[0]
-            if name.startswith("FreeCAD_weekly-builds-") and "-Windows-x86_64" in name:
-                match = re.search(r"FreeCAD_weekly-builds-(\d+)-", name)
+            if name.startswith("FreeCAD_weekly-") and "-Windows-x86_64" in name:
+                match = re.search(r"FreeCAD_weekly-(\d{4}\.\d{2}\.\d{2})-", name)
                 if match:
-                    return int(match.group(1))
+                    date_str = match.group(1)
+                    return datetime.strptime(date_str, '%Y.%m.%d')
         return None
     except Exception as e:
         App.Console.PrintError(
-            translate("MainWindow", "Error retrieving online version: {}").format(e)
+            translate("MainWindow", "Error retrieving online weekly date: {}").format(e)
         )
         
         return None
@@ -169,6 +208,9 @@ def get_remote_stable_version():
             if match:
                 return match.group(1)
     return None
+
+def parse_version(version_str):
+    return tuple(map(int, version_str.split('.')))
 
 # === CACHE ===
 # read data in cache to limit API access 
@@ -216,21 +258,38 @@ def fetch_all_files(forceReload=False):
     last_check, cached_results = read_cache()
     global update_available
     results = []
-    def fetch(url, section):
-        results.append((section, ""))
+    def fetch():
         try:
-            r = requests.get(url, timeout=10)
+            r = requests.get(URL_RELEASES, timeout=10)
             r.raise_for_status()
-            for asset in r.json().get("assets", []):
-                name = asset.get("name", "")
-                durl = asset.get("browser_download_url", "")
-                results.append((name, durl))
+            releases = r.json()
+            latest_stable = None
+            latest_dev = None
+            for release in releases:
+                if not release["draft"]:
+                    if not release["prerelease"] and not latest_stable:
+                        latest_stable = release
+                    if release["prerelease"] and not latest_dev:
+                        latest_dev = release
+                if latest_stable and latest_dev:
+                    break
+            if latest_stable:
+                results.append((translate("Table", "Canal Stable :"), ""))
+                for asset in latest_stable.get("assets", []):
+                    name = asset.get("name", "")
+                    durl = asset.get("browser_download_url", "")
+                    results.append((name, durl))
+            if latest_dev:
+                results.append((translate("Table", "Canal Development :"), ""))
+                for asset in latest_dev.get("assets", []):
+                    name = asset.get("name", "")
+                    durl = asset.get("browser_download_url", "")
+                    results.append((name, durl))
         except Exception as e:
-            App.Console.PrintError(translate("Console", "❌ Error retrieving {} : {}").format(section, e))
+            App.Console.PrintError(translate("Console", "❌ Error retrieving releases: {}").format(e))
 
     if not last_check or now - last_check > MINIMUM_CHECK_INTERVAL or forceReload:
-        fetch(URL_STABLE, translate("Table", "Canal Stable :"))
-        fetch(URL_WEEKLY, translate("Table", "Canal Development :"))
+        fetch()
         write_cache(now, results)
     else:
         results = cached_results
@@ -317,16 +376,23 @@ def check_for_updates(showMessage=False):
     mw = App.Gui.getMainWindow()
 
     version_type = get_freecad_version_type()
-    local, remote = None, None
+    local = None
+    remote = None
 
     fetch_all_files(False)
 
     if "Weekly" in version_type:
-        local = get_local_build_number()
-        remote = get_remote_build_number()
+        local = get_local_build_date()
+        remote = get_remote_weekly_date()
+        local_display = local.strftime('%Y.%m.%d') if local else "Unknown"
+        remote_display = remote.strftime('%Y.%m.%d') if remote else "Unknown"
     elif "Stable" in version_type:
-        local = ".".join(App.Version()[0:3])
-        remote = get_remote_stable_version()
+        local_str = ".".join(App.Version()[0:3])
+        remote_str = get_remote_stable_version()
+        local = parse_version(local_str) if local_str else None
+        remote = parse_version(remote_str) if remote_str else None
+        local_display = local_str
+        remote_display = remote_str
     else:
         if showMessage:
             tooltip = translate("Tooltip", "⁉️ Unable to identify the current version.")
@@ -334,20 +400,22 @@ def check_for_updates(showMessage=False):
         return False
 
     if remote and local and remote > local:
-        update_available = True
-        global updateVersionText
-        updateVersionText = translate("Update Menu", "New version available : {}").format(remote)
-        if showMessage:
-            msg_box = QtGui.QMessageBox()
-            msg_box.setIcon(QtGui.QMessageBox.Information)
-            msg_box.setWindowTitle(translate("Update Message","Update available"))
-            msg_box.setText(translate("Update Message", "FreeCAD new version is available."))
-            msg_box.setInformativeText(translate("Dialog", "Current version : {}" "\\nNew version available : {}").format(local, remote))
-            msg_box.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Close)
-            result = msg_box.exec()
+        delta = remote - local
+        if delta.days >= 2:
+            update_available = True
+            global updateVersionText
+            updateVersionText = translate("Update Menu", "New version available : {}").format(remote_display)
+            if showMessage:
+                msg_box = QtGui.QMessageBox()
+                msg_box.setIcon(QtGui.QMessageBox.Information)
+                msg_box.setWindowTitle(translate("Update Message","Update available"))
+                msg_box.setText(translate("Update Message", "FreeCAD new version is available."))
+                msg_box.setInformativeText(translate("Dialog", "Current version : {}" "\nNew version available : {}").format(local_display, remote_display))
+                msg_box.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Close)
+                result = msg_box.exec()
 
-            if result == QtGui.QMessageBox.Ok:
-                display_freecad_update()
+                if result == QtGui.QMessageBox.Ok:
+                    display_freecad_update()
 
     else:
         updateVersionText = (translate("Update Menu", "No update."))
