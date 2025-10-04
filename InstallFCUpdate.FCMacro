@@ -410,7 +410,7 @@ def check_for_updates(showMessage=False):
                 msg_box.setIcon(QtGui.QMessageBox.Information)
                 msg_box.setWindowTitle(translate("Update Message","Update available"))
                 msg_box.setText(translate("Update Message", "FreeCAD new version is available."))
-                msg_box.setInformativeText(translate("Dialog", "Current version : {}" "\nNew version available : {}").format(local_display, remote_display))
+                msg_box.setInformativeText(translate("Dialog", "Current version : {}" "\\nNew version available : {}").format(local_display, remote_display))
                 msg_box.setStandardButtons(QtGui.QMessageBox.Ok | QtGui.QMessageBox.Close)
                 result = msg_box.exec()
 
