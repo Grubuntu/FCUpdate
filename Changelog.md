@@ -1,4 +1,7 @@
 FCUpdate :
+## 1.4:
+Update address and code for new naming version
+
 ## 1.2
 Fix issue : didn't reload new data at startup
 
